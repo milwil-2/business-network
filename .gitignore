@@ -2,6 +2,11 @@
 .env
 .env.local
 
+# Internal/architecture docs — keep local, never push to public git
+CLAUDE.md
+ONBOARDING.md
+RETROSPECTIVE.md
+
 # Python
 __pycache__/
 *.py[cod]
