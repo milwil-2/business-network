@@ -9,10 +9,14 @@ is reused across requests (important for serverless warm invocations).
 import os
 from pathlib import Path
 
+import certifi
 from dotenv import load_dotenv
 from neo4j import GraphDatabase
 
 load_dotenv(Path(__file__).parent.parent / ".env")
+# macOS framework Python lacks a CA bundle; point TLS at certifi so the
+# neo4j+s:// connection to Aura verifies. Harmless on Linux/Vercel.
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 
 _driver = None
 

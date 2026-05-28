@@ -1,7 +1,7 @@
-"""GraphRAG over the Neo4j knowledge graph using Google Gemini.
+"""GraphRAG over the Neo4j knowledge graph using Groq (Llama 3.3).
 
 The whole graph is small (~22 nodes) so we pass every node summary into the
-prompt as grounding context and ask Gemini to cite the node ids it used. We
+prompt as grounding context and ask the LLM to cite the node ids it used. We
 then enrich the cited ids with their neighbors so the UI can show the
 subgraph that grounded the answer.
 """
@@ -10,8 +10,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import errors, types
+from groq import APIError, Groq, RateLimitError
 from pydantic import BaseModel
 
 from . import db
@@ -20,8 +19,10 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 
 SYSTEM_INSTRUCTION = (
     "You answer questions about software engineering using ONLY the provided "
-    "knowledge-graph nodes. Cite the node ids you used in cited_node_ids. "
-    "If the graph lacks the info, say so."
+    "knowledge-graph nodes. Respond with a JSON object of the form "
+    '{"answer": "<your answer>", "cited_node_ids": ["<id>", ...]} — list the '
+    "node ids you used in cited_node_ids. If the graph lacks the info, say so "
+    "in the answer."
 )
 
 
@@ -42,31 +43,26 @@ def answer_question(question: str) -> dict:
     )
 
     try:
-        client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
-        response = client.models.generate_content(
-            model="gemini-2.0-flash-lite",
-            contents=user_content,
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_INSTRUCTION,
-                response_mime_type="application/json",
-                response_schema=RagAnswer,
-            ),
+        client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            response_format={"type": "json_object"},
+            max_tokens=2048,
+            messages=[
+                {"role": "system", "content": SYSTEM_INSTRUCTION},
+                {"role": "user", "content": user_content},
+            ],
         )
-        parsed = RagAnswer.model_validate_json(response.text)
-    except errors.ClientError as e:
-        is_quota = e.code == 429 or "RESOURCE_EXHAUSTED" in str(e)
-        if is_quota:
-            return {
-                "answer": (
-                    "LLM quota exhausted — set a working GEMINI_API_KEY "
-                    "(create one in a NEW project at "
-                    "https://aistudio.google.com/apikey)."
-                ),
-                "cited_node_ids": [],
-                "subgraph": {},
-            }
+        parsed = RagAnswer.model_validate_json(response.choices[0].message.content)
+    except RateLimitError:
         return {
-            "answer": f"LLM error: {e.message}",
+            "answer": "LLM rate limit hit — wait a minute and try again (Groq free tier is ~30 req/min).",
+            "cited_node_ids": [],
+            "subgraph": {},
+        }
+    except APIError as e:
+        return {
+            "answer": f"LLM error: {e}",
             "cited_node_ids": [],
             "subgraph": {},
         }
