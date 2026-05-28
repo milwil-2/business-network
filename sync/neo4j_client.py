@@ -1,5 +1,10 @@
+import os
+
+import certifi
 from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
+
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 
 from parser import ParsedNode
 

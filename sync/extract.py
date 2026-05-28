@@ -1,4 +1,4 @@
-"""Extract knowledge graph nodes from raw notes or topic names using Google Gemini.
+"""Extract knowledge graph nodes from raw notes or topic names using Groq (Llama 3.3).
 
 Usage:
     uv run sync/extract.py --topic "Bloom Filter"
@@ -19,15 +19,14 @@ import frontmatter
 import typer
 import yaml
 from dotenv import load_dotenv
-from google import genai
-from google.genai import errors, types
+from groq import APIError, Groq, RateLimitError
 from pydantic import BaseModel
 from rich.console import Console
 from rich.table import Table
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-app = typer.Typer(help="Extract knowledge graph nodes using Google Gemini.")
+app = typer.Typer(help="Extract knowledge graph nodes using Groq.")
 console = Console()
 
 VALID_NODE_TYPES = {"Concept", "Technology", "Algorithm", "Pattern"}
@@ -130,38 +129,36 @@ Return ONLY a JSON object with this exact structure (no markdown fences):
 
 def extract_nodes(
     text: str,
-    client: genai.Client,
+    client: Groq,
     system_prompt: str,
 ) -> list[ExtractedNode]:
-    """Call Gemini to extract nodes from text."""
+    """Call Groq (Llama 3.3) to extract nodes from text."""
     max_attempts = 3
     for attempt in range(1, max_attempts + 1):
         try:
-            response = client.models.generate_content(
-                model="gemini-2.0-flash-lite",
-                contents=text,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    response_mime_type="application/json",
-                    response_schema=ExtractionResult,
-                ),
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                response_format={"type": "json_object"},
+                max_tokens=4096,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": text},
+                ],
             )
-            return ExtractionResult.model_validate_json(response.text).nodes
-        except errors.ClientError as e:
-            is_quota = e.code == 429 or "RESOURCE_EXHAUSTED" in str(e)
-            if is_quota and attempt < max_attempts:
+            return ExtractionResult.model_validate_json(
+                response.choices[0].message.content
+            ).nodes
+        except RateLimitError:
+            if attempt < max_attempts:
                 time.sleep(5 * attempt)
                 continue
-            if is_quota:
-                console.print("[bold red]Gemini quota exhausted (free-tier limit: 0).[/bold red]")
-                console.print(
-                    "[dim]This usually means your API key's Google project has no "
-                    "free-tier quota. Fix: create a new key at "
-                    "https://aistudio.google.com/apikey and choose "
-                    "'Create API key in new project'.[/dim]"
-                )
-                raise typer.Exit(1)
-            console.print(f"[red]Gemini error ({e.code}):[/red] {e.message}")
+            console.print("[bold red]Groq rate limit hit.[/bold red]")
+            console.print(
+                "[dim]Free tier is ~30 requests/min. Wait a minute and retry.[/dim]"
+            )
+            raise typer.Exit(1)
+        except APIError as e:
+            console.print(f"[red]Groq error:[/red] {e}")
             raise typer.Exit(1)
     # Unreachable: loop either returns or raises.
     raise typer.Exit(1)
@@ -219,7 +216,7 @@ def write_node_file(node: ExtractedNode, vault_path: Path) -> tuple[Path, bool]:
 
 def _run_extraction(
     text: str,
-    client: genai.Client,
+    client: Groq,
     vault_path: Path,
     source_label: str,
     dry_run: bool,
@@ -281,13 +278,13 @@ def main(
     ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Preview without writing files"),
 ) -> None:
-    """Extract knowledge graph nodes from notes or topic names using Google Gemini."""
+    """Extract knowledge graph nodes from notes or topic names using Groq."""
     if not topic and not inbox and not file:
         console.print("[red]Error:[/red] Provide --topic, --inbox, or --file.")
         raise typer.Exit(1)
 
     vault_path = Path(__file__).parent.parent / "vault"
-    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
+    client = Groq(api_key=os.environ.get("GROQ_API_KEY", ""))
     all_results: list[tuple[Path, bool]] = []
 
     # --topic
