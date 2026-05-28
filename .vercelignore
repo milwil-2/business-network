@@ -1,0 +1,15 @@
+# Secrets — never upload to Vercel
+.env
+.env.*
+
+# Local virtualenv / caches
+.venv/
+__pycache__/
+*.pyc
+
+# Not needed by the serverless API (it talks to Neo4j, not the local vault)
+vault/
+sync/
+cypher/
+tests/
+.git/
