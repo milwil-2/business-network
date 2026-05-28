@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Knowledge Graph</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --panel: #1a2029;
+      --border: #2a3340;
+      --text: #e6edf3;
+      --muted: #8b98a5;
+      --accent: #58a6ff;
+      --concept: #f2c14e;
+      --technology: #4ea1f2;
+      --algorithm: #e06c75;
+      --pattern: #98c379;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+      background: var(--panel);
+    }
+    header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+    header .counts { color: var(--muted); font-size: 13px; }
+    header .counts b { color: var(--accent); }
+    .main { flex: 1; display: flex; min-height: 0; }
+    #network {
+      flex: 1;
+      background: var(--bg);
+    }
+    .sidebar {
+      width: 380px;
+      border-left: 1px solid var(--border);
+      background: var(--panel);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+    }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; }
+    .legend .item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+    .swatch { width: 12px; height: 12px; border-radius: 3px; }
+    .section h2 {
+      font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); margin: 0 0 10px;
+    }
+    .ask-row { display: flex; gap: 8px; }
+    #question {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 11px;
+      border-radius: 7px;
+      font-size: 13px;
+    }
+    #question:focus { outline: none; border-color: var(--accent); }
+    button {
+      background: var(--accent);
+      color: #0b1622;
+      border: none;
+      padding: 9px 16px;
+      border-radius: 7px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    #answer {
+      margin-top: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 13.5px;
+      line-height: 1.55;
+      min-height: 40px;
+      white-space: pre-wrap;
+    }
+    #answer.empty { color: var(--muted); }
+    .cited { margin-top: 12px; }
+    .cited .pill {
+      display: inline-block;
+      background: #233040;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      margin: 3px 4px 0 0;
+      cursor: pointer;
+    }
+    .cited .pill:hover { border-color: var(--accent); }
+    .subgraph { margin-top: 10px; font-size: 12px; color: var(--muted); }
+    .subgraph .grp { margin-bottom: 8px; }
+    .subgraph .grp b { color: var(--text); }
+    .subgraph .edge { display: block; margin-left: 10px; }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Knowledge Graph</h1>
+    <span class="counts" id="counts">loading&hellip;</span>
+  </header>
+  <div class="main">
+    <div id="network"></div>
+    <aside class="sidebar">
+      <div class="section">
+        <h2>Legend</h2>
+        <div class="legend">
+          <span class="item"><span class="swatch" style="background:var(--concept)"></span>Concept</span>
+          <span class="item"><span class="swatch" style="background:var(--technology)"></span>Technology</span>
+          <span class="item"><span class="swatch" style="background:var(--algorithm)"></span>Algorithm</span>
+          <span class="item"><span class="swatch" style="background:var(--pattern)"></span>Pattern</span>
+        </div>
+      </div>
+      <div class="section">
+        <h2>GraphRAG</h2>
+        <div class="ask-row">
+          <input id="question" type="text" placeholder="Ask about the graph&hellip;"
+                 onkeydown="if(event.key==='Enter')ask()" />
+          <button id="askBtn" onclick="ask()">Ask</button>
+        </div>
+        <div id="answer" class="empty">Ask a question to ground an answer in the graph.</div>
+        <div class="cited" id="cited"></div>
+        <div class="subgraph" id="subgraph"></div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const COLORS = {
+      Concept: getCSS('--concept'),
+      Technology: getCSS('--technology'),
+      Algorithm: getCSS('--algorithm'),
+      Pattern: getCSS('--pattern'),
+    };
+    function getCSS(v) {
+      return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    }
+
+    let network = null;
+    let nodesDS = null;
+
+    async function loadHealth() {
+      try {
+        const h = await (await fetch('/health')).json();
+        document.getElementById('counts').innerHTML =
+          `<b>${h.nodes}</b> nodes &middot; <b>${h.relationships}</b> relationships`;
+      } catch (e) {
+        document.getElementById('counts').textContent = 'health unavailable';
+      }
+    }
+
+    async function loadGraph() {
+      const g = await (await fetch('/graph')).json();
+      const nodes = g.nodes.map(n => ({
+        id: n.id,
+        label: n.label,
+        title: n.title || '',
+        group: n.group,
+        color: {
+          background: COLORS[n.group] || '#888',
+          border: '#0f1419',
+          highlight: { background: COLORS[n.group] || '#888', border: '#fff' },
+        },
+        font: { color: '#0b1622' },
+      }));
+      const edges = g.edges.map(e => ({
+        from: e.from,
+        to: e.to,
+        label: e.label,
+        arrows: 'to',
+        font: { color: '#8b98a5', size: 10, strokeWidth: 0, align: 'middle' },
+        color: { color: '#3a4654', highlight: '#58a6ff' },
+      }));
+      nodesDS = new vis.DataSet(nodes);
+      const edgesDS = new vis.DataSet(edges);
+      const container = document.getElementById('network');
+      network = new vis.Network(container, { nodes: nodesDS, edges: edgesDS }, {
+        nodes: { shape: 'dot', size: 16, borderWidth: 2,
+                 font: { size: 13, face: 'sans-serif' } },
+        edges: { smooth: { type: 'continuous' }, width: 1.2 },
+        physics: { stabilization: true,
+                   barnesHut: { gravitationalConstant: -8000, springLength: 140 } },
+        interaction: { hover: true, tooltipDelay: 120 },
+      });
+    }
+
+    function highlight(ids) {
+      if (!nodesDS) return;
+      const set = new Set(ids);
+      const updates = nodesDS.getIds().map(id => ({
+        id,
+        borderWidth: set.has(id) ? 5 : 2,
+        color: { border: set.has(id) ? '#ffffff' : '#0f1419' },
+      }));
+      nodesDS.update(updates);
+      if (ids.length && network) network.selectNodes(ids, true);
+    }
+
+    async function ask() {
+      const input = document.getElementById('question');
+      const q = input.value.trim();
+      if (!q) return;
+      const btn = document.getElementById('askBtn');
+      const answerEl = document.getElementById('answer');
+      const citedEl = document.getElementById('cited');
+      const subEl = document.getElementById('subgraph');
+      btn.disabled = true;
+      answerEl.classList.remove('empty');
+      answerEl.innerHTML = '<span class="spinner"></span>Thinking&hellip;';
+      citedEl.innerHTML = '';
+      subEl.innerHTML = '';
+      try {
+        const res = await fetch('/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q }),
+        });
+        const data = await res.json();
+        answerEl.textContent = data.answer || '(no answer)';
+        const cited = data.cited_node_ids || [];
+        if (cited.length) {
+          citedEl.innerHTML = '<div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Grounded in:</div>' +
+            cited.map(id => `<span class="pill" onclick="highlight(['${id}'])">${id}</span>`).join('');
+          highlight(cited);
+        }
+        const sub = data.subgraph || {};
+        const blocks = Object.keys(sub).map(id => {
+          const edges = (sub[id] || []).map(e =>
+            `<span class="edge">&rarr; ${e.rel} &rarr; ${e.target_label} (${e.target_type})</span>`).join('');
+          return `<div class="grp"><b>${id}</b>${edges || '<span class="edge">(no outgoing edges)</span>'}</div>`;
+        });
+        if (blocks.length) {
+          subEl.innerHTML = '<div style="margin-bottom:6px;">Subgraph:</div>' + blocks.join('');
+        }
+      } catch (e) {
+        answerEl.textContent = 'Request failed: ' + e;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    loadHealth();
+    loadGraph();
+  </script>
+</body>
+</html>
