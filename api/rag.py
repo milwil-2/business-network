@@ -1,9 +1,12 @@
 """GraphRAG over the Neo4j knowledge graph using Groq (Llama 3.3).
 
-The whole graph is small (~22 nodes) so we pass every node summary into the
-prompt as grounding context and ask the LLM to cite the node ids it used. We
-then enrich the cited ids with their neighbors so the UI can show the
-subgraph that grounded the answer.
+Retrieval is hybrid: we first try semantic (vector) search to pull the most
+relevant seed nodes and their neighbors as focused context. If the vector
+index is unavailable (e.g. on Vercel where chromadb isn't installed, or the
+index is empty) we fall back to passing every node summary into the prompt —
+the graph is small (~22 nodes) so that still fits. Either way the LLM cites
+the node ids it used, and we enrich those ids with their neighbors so the UI
+can show the subgraph that grounded the answer.
 """
 
 import os
@@ -31,12 +34,43 @@ class RagAnswer(BaseModel):
     cited_node_ids: list[str]
 
 
+def _retrieve_context(question: str) -> tuple[str, str]:
+    """Build grounding context for the question.
+
+    Returns ``(context_text, mode)`` where ``mode`` is ``"hybrid"`` (vector
+    seeds + their neighbors) or ``"graph-only"`` (every node summary). The
+    vector import is lazy so the app still imports where chromadb is absent.
+    """
+    try:
+        from vector.store import semantic_search
+
+        seeds = semantic_search(question, k=6)
+        lines: list[str] = []
+        for seed in seeds:
+            node = db.get_node(seed["id"])
+            if node is None:
+                continue
+            lines.append(
+                f"- {node['id']} ({node['type']}): "
+                f"{node['label']} — {node['summary']}"
+            )
+            for edge in db.get_neighbors(node["id"]):
+                lines.append(
+                    f"  -[{edge['rel']}]-> {edge['target_label']}"
+                )
+        return "\n".join(lines), "hybrid"
+    except Exception:
+        summaries = db.all_node_summaries()
+        context = "\n".join(
+            f"- {n['id']} ({n['type']}): {n['label']} — {n['summary']}"
+            for n in summaries
+        )
+        return context, "graph-only"
+
+
 def answer_question(question: str) -> dict:
     """Answer a question grounded in the graph; never raises."""
-    summaries = db.all_node_summaries()
-    context = "\n".join(
-        f"- {n['id']} ({n['type']}): {n['label']} — {n['summary']}" for n in summaries
-    )
+    context, mode = _retrieve_context(question)
     user_content = (
         f"Question: {question}\n\n"
         f"Knowledge-graph nodes:\n{context}"
@@ -75,4 +109,5 @@ def answer_question(question: str) -> dict:
         "answer": parsed.answer,
         "cited_node_ids": parsed.cited_node_ids,
         "subgraph": subgraph,
+        "mode": mode,
     }

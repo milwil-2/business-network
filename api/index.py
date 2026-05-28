@@ -8,7 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
 from . import db, rag
@@ -61,6 +61,17 @@ def shortest_path(source: str, target: str):
 @app.get("/search")
 def search(q: str):
     return db.search_nodes(q)
+
+
+@app.get("/semantic-search")
+def semantic_search(q: str, k: int = 6):
+    # Lazy import so the app still loads where chromadb is absent (Vercel).
+    try:
+        from vector.store import semantic_search as _semantic_search
+
+        return _semantic_search(q, k=k)
+    except (ImportError, RuntimeError, Exception) as e:
+        return JSONResponse(status_code=503, content={"error": str(e)})
 
 
 @app.post("/ask")

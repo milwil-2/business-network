@@ -118,3 +118,19 @@ MATCH (n)-[:IMPLEMENTS]->(c) RETURN c.label, count(n) ORDER BY count(n) DESC
 
 **Q: What are limitations of graph databases?**
 > Weaker aggregation and reporting than relational DBs. Less mature tooling ecosystem. OLAP-style queries (full scans, complex aggregations) are slower. Not ideal for tabular/flat data. No SQL-style window functions. Horizontal sharding is harder than in distributed SQL systems.
+
+---
+
+## Vector search & scaling
+
+**The hybrid-retrieval story (GraphRAG).** Classic RAG retrieves context purely by vector similarity. Here retrieval is **vector seeds + graph expansion**: a Chroma vector store finds the top-k semantically relevant nodes, then the graph expands their neighbors, and the LLM answers while **citing the grounding node ids**. So I blend semantic recall with structural context — the vector layer finds *what's relevant*, the graph supplies *what's connected*. Embeddings are computed by a local model (`all-MiniLM-L6-v2`), so there's no embeddings API dependency, and if the index is unavailable `/ask` degrades to graph-only retrieval.
+
+**How vector DBs scale.** Brute-force nearest-neighbor is O(N·d) per query — fine for thousands of vectors, hopeless at billions. Real vector DBs use **ANN indexes**:
+- **HNSW** — a multi-layer navigable graph; ~sub-linear query time, RAM-resident. Great recall/latency, but the whole index lives in memory.
+- **IVF / PQ** — clustering (search only the nearest cells) plus product quantization (compress each vector to a few bytes); enables disk-backed, billion-scale indexes at some recall cost.
+
+The real cost at scale is **memory**, not query latency: a 768-dim float32 vector ≈ 3 KB, so 1B vectors ≈ 3 TB of RAM for a flat/HNSW index. The core tradeoff is **recall ↔ latency ↔ memory** — you tune index params (and reach for quantization) to balance them.
+
+**Many corpuses.** Don't dump everything into one giant index. Partition with **namespaces / collections / shards** so per-query N stays small. A single mixed index with a selective metadata filter can be inefficient: ANN traverses neighbors that the filter then discards, wasting the graph walk.
+
+**Tie-back.** At 51 nodes this is trivially a flat scan that returns instantly — the point is demonstrating the *architecture*, not the performance. At real scale I'd use **Neo4j's native vector index** (unified graph + vector in one store) or a managed vector DB, and reach for quantization only once the index stops fitting in RAM.
