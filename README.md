@@ -102,6 +102,31 @@ Returns the top-k nodes by semantic similarity as `[{id, label, type, score}]`.
 
 ---
 
+## Ingesting data (gated)
+
+Beyond the vault-driven sync, the API exposes a gated, **safe-by-default** HTTP ingestion path that runs LLM extraction and stages the result for human review before it ever touches the curated graph.
+
+### Endpoints
+
+- **`POST /ingest`** (header `X-API-Key`) — accepts `{ "text": "..." }`, runs Groq (Llama 3.3) extraction, and writes the resulting nodes into a quarantine **`:Staged`** label in Neo4j. It never writes directly into the curated graph.
+- **`POST /ingest/approve`** (same `X-API-Key`) — promotes the `:Staged` nodes into the real graph (idempotent `MERGE`) and removes the staged copies.
+
+So the flow is always **extract → `:Staged` quarantine → human approve → curated graph**.
+
+### Gating / safe-by-default
+
+Both endpoints are **disabled unless the `INGEST_API_KEY` env var is set** — when it is unset they return `404` (the routes effectively don't exist). The key is intentionally **left unset on the Vercel deployment**, so there is **no public write path to prod**. To use ingestion, set `INGEST_API_KEY` locally. Authentication compares the supplied key with a **constant-time comparison**.
+
+### Abuse protections
+
+- **Payload cap** — request bodies over **8 KB** are rejected with `413`.
+- **Rate limit** — an in-memory limit of **10 ingests / 60 s per key** returns `429` when exceeded.
+- **Closed-vocab validation** — extracted `node_type` and relationship types are validated against the closed vocabulary **before any Cypher write**, so labels and relationship types can't inject Cypher.
+
+Related hardening shipped alongside: the browser viz now renders node ids/labels safely (DOM `textContent` + escaping instead of `innerHTML`), so untrusted ingested content can't cause stored XSS.
+
+---
+
 ## Deploy to the cloud (Neo4j Aura + Vercel)
 
 ### 1. Neo4j Aura (free)
@@ -124,6 +149,7 @@ The repo includes `vercel.json` and `requirements.txt`, so Vercel's Python runti
    - `NEO4J_USER` — usually `neo4j`
    - `NEO4J_PASSWORD` — your Aura password
    - `GROQ_API_KEY` — your Groq key
+   - `INGEST_API_KEY` (optional) — enables the gated `/ingest` endpoints; **leave unset in the cloud** so there is no public write path to prod (see "Ingesting data (gated)").
 
 Note: the public deployment talks to Aura, not your local DB.
 

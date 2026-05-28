@@ -6,12 +6,12 @@ a module-level ``app``. Routes are root-relative (no ``/api`` prefix).
 
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
-from . import db, rag
+from . import db, ingest, rag
 
 app = FastAPI(title="Knowledge Graph API")
 
@@ -28,6 +28,10 @@ _TEMPLATE = Path(__file__).parent / "templates" / "index.html"
 
 class AskRequest(BaseModel):
     question: str
+
+
+class IngestRequest(BaseModel):
+    text: str
 
 
 @app.get("/health")
@@ -77,6 +81,41 @@ def semantic_search(q: str, k: int = 6):
 @app.post("/ask")
 def ask(req: AskRequest):
     return rag.answer_question(req.question)
+
+
+def _guard_ingest(x_api_key: str | None) -> None:
+    """Shared gate for the ingest routes: existence, auth, and rate limiting."""
+    if not ingest.is_enabled():
+        # Hide the endpoint's existence entirely when disabled.
+        raise HTTPException(status_code=404, detail="not found")
+    if not ingest.check_key(x_api_key):
+        raise HTTPException(status_code=401, detail="invalid api key")
+
+
+@app.post("/ingest")
+def ingest_text(
+    req: IngestRequest,
+    x_api_key: str | None = Header(default=None),
+):
+    _guard_ingest(x_api_key)
+    if len(req.text.encode()) > ingest.MAX_INGEST_BYTES:
+        raise HTTPException(status_code=413, detail="payload too large")
+    if not ingest.rate_ok(x_api_key):
+        raise HTTPException(status_code=429, detail="rate limit exceeded")
+    try:
+        nodes = ingest.extract(req.text)
+        preview = ingest.stage(nodes)
+        return {"staged": preview}
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
+@app.post("/ingest/approve")
+def ingest_approve(x_api_key: str | None = Header(default=None)):
+    _guard_ingest(x_api_key)
+    if not ingest.rate_ok(x_api_key):
+        raise HTTPException(status_code=429, detail="rate limit exceeded")
+    return ingest.approve()
 
 
 @app.get("/", response_class=HTMLResponse)
