@@ -132,13 +132,13 @@ def test_scan_vault_collects_errors(temp_vault):
 # --- module constants ---------------------------------------------------
 
 def test_valid_node_types():
-    assert parser.VALID_NODE_TYPES == {"Concept", "Technology", "Algorithm", "Pattern"}
+    assert parser.VALID_NODE_TYPES == {"Concept", "Technology", "Algorithm", "Pattern", "Course"}
 
 
 def test_valid_rel_types_members():
     expected = {
         "IMPLEMENTS", "USES_QUERY_LANGUAGE", "EXTENDS", "IS_VARIANT_OF",
         "ENABLES", "OPTIMIZED_FOR", "USED_IN", "RELATED_TO", "STORES_AS",
-        "COMPETES_WITH", "INSPIRED_BY",
+        "COMPETES_WITH", "INSPIRED_BY", "PREREQUISITE_OF", "COVERS",
     }
     assert parser.VALID_REL_TYPES == expected

@@ -22,6 +22,10 @@
     {
       "query": "tag:Pattern",
       "color": { "a": 1, "rgb": 8978380 }
+    },
+    {
+      "query": "tag:Course",
+      "color": { "a": 1, "rgb": 13007069 }
     }
   ],
   "collapse-display": false,
