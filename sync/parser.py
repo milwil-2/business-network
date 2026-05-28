@@ -6,11 +6,11 @@ import frontmatter
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]")
 
-VALID_NODE_TYPES = {"Concept", "Technology", "Algorithm", "Pattern"}
+VALID_NODE_TYPES = {"Concept", "Technology", "Algorithm", "Pattern", "Course"}
 VALID_REL_TYPES = {
     "IMPLEMENTS", "USES_QUERY_LANGUAGE", "EXTENDS", "IS_VARIANT_OF",
     "ENABLES", "OPTIMIZED_FOR", "USED_IN", "RELATED_TO", "STORES_AS",
-    "COMPETES_WITH", "INSPIRED_BY",
+    "COMPETES_WITH", "INSPIRED_BY", "PREREQUISITE_OF", "COVERS",
 }
 
 

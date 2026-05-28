@@ -17,6 +17,7 @@
       --technology: #4ea1f2;
       --algorithm: #e06c75;
       --pattern: #98c379;
+      --course: #c678dd;
     }
     * { box-sizing: border-box; }
     body {
@@ -137,6 +138,7 @@
           <span class="item"><span class="swatch" style="background:var(--technology)"></span>Technology</span>
           <span class="item"><span class="swatch" style="background:var(--algorithm)"></span>Algorithm</span>
           <span class="item"><span class="swatch" style="background:var(--pattern)"></span>Pattern</span>
+          <span class="item"><span class="swatch" style="background:var(--course)"></span>Course</span>
         </div>
       </div>
       <div class="section">
@@ -159,6 +161,7 @@
       Technology: getCSS('--technology'),
       Algorithm: getCSS('--algorithm'),
       Pattern: getCSS('--pattern'),
+      Course: getCSS('--course'),
     };
     function getCSS(v) {
       return getComputedStyle(document.documentElement).getPropertyValue(v).trim();

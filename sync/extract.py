@@ -29,7 +29,7 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 app = typer.Typer(help="Extract knowledge graph nodes using Groq.")
 console = Console()
 
-VALID_NODE_TYPES = {"Concept", "Technology", "Algorithm", "Pattern"}
+VALID_NODE_TYPES = {"Concept", "Technology", "Algorithm", "Pattern", "Course"}
 VALID_REL_TYPES = {
     "IMPLEMENTS",
     "USES_QUERY_LANGUAGE",
@@ -42,6 +42,8 @@ VALID_REL_TYPES = {
     "STORES_AS",
     "COMPETES_WITH",
     "INSPIRED_BY",
+    "PREREQUISITE_OF",
+    "COVERS",
 }
 
 NODE_TYPE_SUBDIR = {
@@ -49,6 +51,7 @@ NODE_TYPE_SUBDIR = {
     "Technology": "technologies",
     "Algorithm": "algorithms",
     "Pattern": "patterns",
+    "Course": "courses",
 }
 
 
@@ -65,7 +68,7 @@ class Relationship(BaseModel):
 class ExtractedNode(BaseModel):
     id: str
     label: str
-    node_type: Literal["Concept", "Technology", "Algorithm", "Pattern"]
+    node_type: Literal["Concept", "Technology", "Algorithm", "Pattern", "Course"]
     tags: list[str]
     summary: str
     properties: dict[str, str | int | float] = {}
@@ -101,14 +104,15 @@ def build_system_prompt(existing_ids: list[str]) -> str:
     ids_block = "\n".join(f"  - {nid}" for nid in existing_ids) if existing_ids else "  (none yet)"
     return f"""You are a knowledge graph curator. Extract structured nodes from text and return a JSON object.
 
-## Node types (exactly 4 valid values)
+## Node types (use one of these exact values)
 - Concept — abstract ideas, theories, principles (e.g. "eventual consistency", "graph theory")
 - Technology — concrete tools, databases, libraries, languages (e.g. "Redis", "Neo4j", "Python")
 - Algorithm — named algorithms and data structures (e.g. "Bloom Filter", "Dijkstra")
 - Pattern — design and architectural patterns (e.g. "CQRS", "Event Sourcing")
+- Course — university courses / classes, e.g. 'CS 61B', 'Data 100'
 
 ## Valid relationship types (use ONLY these exact strings)
-IMPLEMENTS, USES_QUERY_LANGUAGE, EXTENDS, IS_VARIANT_OF, ENABLES, OPTIMIZED_FOR, USED_IN, RELATED_TO, STORES_AS, COMPETES_WITH, INSPIRED_BY
+IMPLEMENTS, USES_QUERY_LANGUAGE, EXTENDS, IS_VARIANT_OF, ENABLES, OPTIMIZED_FOR, USED_IN, RELATED_TO, STORES_AS, COMPETES_WITH, INSPIRED_BY, PREREQUISITE_OF, COVERS
 
 ## Existing node IDs (ONLY use these as relationship targets — never invent new ones)
 {ids_block}
@@ -123,7 +127,7 @@ IMPLEMENTS, USES_QUERY_LANGUAGE, EXTENDS, IS_VARIANT_OF, ENABLES, OPTIMIZED_FOR,
 
 ## Output format
 Return ONLY a JSON object with this exact structure (no markdown fences):
-{{"nodes": [{{"id": "...", "label": "...", "node_type": "Concept|Technology|Algorithm|Pattern", "tags": ["..."], "summary": "...", "properties": {{}}, "relationships": [{{"type": "...", "target": "..."}}], "body": "..."}}]}}
+{{"nodes": [{{"id": "...", "label": "...", "node_type": "Concept|Technology|Algorithm|Pattern|Course", "tags": ["..."], "summary": "...", "properties": {{}}, "relationships": [{{"type": "...", "target": "..."}}], "body": "..."}}]}}
 """
 
 

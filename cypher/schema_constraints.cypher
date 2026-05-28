@@ -13,6 +13,9 @@ CREATE CONSTRAINT algorithm_id IF NOT EXISTS
 CREATE CONSTRAINT pattern_id IF NOT EXISTS
   FOR (n:Pattern) REQUIRE n.id IS UNIQUE;
 
+CREATE CONSTRAINT course_id IF NOT EXISTS
+  FOR (n:Course) REQUIRE n.id IS UNIQUE;
+
 CREATE INDEX node_label IF NOT EXISTS
   FOR (n:Concept) ON (n.label);
 
