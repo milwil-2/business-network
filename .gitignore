@@ -17,3 +17,4 @@ sync/.sync_state.json
 # Obsidian local UI state (keep committed: app.json, core-plugins.json, graph.json)
 .obsidian/workspace*.json
 .obsidian/cache
+.vercel
