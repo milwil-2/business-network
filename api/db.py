@@ -1,0 +1,133 @@
+"""Self-contained Neo4j access layer for the knowledge-graph API.
+
+All query functions open a session, run a read query, and return plain
+JSON-serializable dicts/lists so the FastAPI layer can hand them straight
+to a response. The driver is a lazily-created module-level singleton so it
+is reused across requests (important for serverless warm invocations).
+"""
+
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+from neo4j import GraphDatabase
+
+load_dotenv(Path(__file__).parent.parent / ".env")
+
+_driver = None
+
+
+def get_driver():
+    """Return a cached Neo4j driver, creating it on first use."""
+    global _driver
+    if _driver is None:
+        uri = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
+        user = os.environ.get("NEO4J_USER", "neo4j")
+        password = os.environ.get("NEO4J_PASSWORD", "")
+        _driver = GraphDatabase.driver(uri, auth=(user, password))
+    return _driver
+
+
+def health() -> dict:
+    """Return basic graph stats: status plus node and relationship counts."""
+    with get_driver().session() as s:
+        nodes = s.run("MATCH (n) RETURN count(n) AS c").single()["c"]
+        rels = s.run("MATCH ()-[r]->() RETURN count(r) AS c").single()["c"]
+    return {"status": "ok", "nodes": nodes, "relationships": rels}
+
+
+def get_node(node_id: str) -> dict | None:
+    """Fetch a single node by id, or None if it doesn't exist."""
+    with get_driver().session() as s:
+        record = s.run(
+            "MATCH (n {id:$id}) RETURN n, labels(n)[0] AS type",
+            id=node_id,
+        ).single()
+    if record is None:
+        return None
+    node = record["n"]
+    props = dict(node)
+    return {
+        "id": props.get("id"),
+        "label": props.get("label"),
+        "type": record["type"],
+        "summary": props.get("summary"),
+        "properties": props,
+    }
+
+
+def get_neighbors(node_id: str) -> list[dict]:
+    """Return outgoing neighbors of a node as a list of edge/target dicts."""
+    with get_driver().session() as s:
+        records = s.run(
+            """
+            MATCH (n {id:$id})-[r]->(m)
+            RETURN type(r) AS rel,
+                   m.id AS target_id,
+                   m.label AS target_label,
+                   labels(m)[0] AS target_type
+            """,
+            id=node_id,
+        )
+        return [dict(r) for r in records]
+
+
+def get_graph() -> dict:
+    """Return the entire graph shaped for vis-network rendering."""
+    with get_driver().session() as s:
+        node_records = s.run(
+            "MATCH (n) RETURN n.id AS id, n.label AS label, "
+            "labels(n)[0] AS group, n.summary AS title"
+        )
+        nodes = [dict(r) for r in node_records]
+        edge_records = s.run(
+            "MATCH (a)-[r]->(b) RETURN a.id AS from, b.id AS to, type(r) AS label"
+        )
+        edges = [dict(r) for r in edge_records]
+    return {"nodes": nodes, "edges": edges}
+
+
+def shortest_path(source: str, target: str) -> dict:
+    """Return the shortest path (<= 8 hops) between two nodes by id."""
+    with get_driver().session() as s:
+        record = s.run(
+            """
+            MATCH (a {id:$source}), (b {id:$target}),
+                  p = shortestPath((a)-[*..8]-(b))
+            RETURN [n IN nodes(p) | n.label] AS labels,
+                   [r IN relationships(p) | type(r)] AS rels,
+                   length(p) AS hops
+            """,
+            source=source,
+            target=target,
+        ).single()
+    if record is None:
+        return {"error": "no path"}
+    return {"labels": record["labels"], "rels": record["rels"], "hops": record["hops"]}
+
+
+def search_nodes(query: str) -> list[dict]:
+    """Case-insensitive search over node labels and summaries."""
+    with get_driver().session() as s:
+        records = s.run(
+            """
+            MATCH (n)
+            WHERE toLower(n.label) CONTAINS toLower($q)
+               OR toLower(n.summary) CONTAINS toLower($q)
+            RETURN n.id AS id, n.label AS label,
+                   labels(n)[0] AS type, n.summary AS summary
+            LIMIT 25
+            """,
+            q=query,
+        )
+        return [dict(r) for r in records]
+
+
+def all_node_summaries() -> list[dict]:
+    """Return id/label/type/summary for every node (used by GraphRAG context)."""
+    with get_driver().session() as s:
+        records = s.run(
+            "MATCH (n) RETURN n.id AS id, n.label AS label, "
+            "labels(n)[0] AS type, n.summary AS summary"
+        )
+        return [dict(r) for r in records]

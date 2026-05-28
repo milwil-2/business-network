@@ -1,0 +1,19 @@
+# Secrets
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Runtime state
+sync/.sync_state.json
+
+# OS
+.DS_Store
+
+# Obsidian local UI state (keep committed: app.json, core-plugins.json, graph.json)
+.obsidian/workspace*.json
+.obsidian/cache
