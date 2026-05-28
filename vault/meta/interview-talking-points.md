@@ -134,3 +134,26 @@ The real cost at scale is **memory**, not query latency: a 768-dim float32 vecto
 **Many corpuses.** Don't dump everything into one giant index. Partition with **namespaces / collections / shards** so per-query N stays small. A single mixed index with a selective metadata filter can be inefficient: ANN traverses neighbors that the filter then discards, wasting the graph walk.
 
 **Tie-back.** At 51 nodes this is trivially a flat scan that returns instantly — the point is demonstrating the *architecture*, not the performance. At real scale I'd use **Neo4j's native vector index** (unified graph + vector in one store) or a managed vector DB, and reach for quantization only once the index stops fitting in RAM.
+
+---
+
+## Security & safe ingestion
+
+**The story:** "I added an on-request `/ingest` endpoint that runs LLM extraction and writes to the graph — and the moment you expose a write path that takes arbitrary text and calls a paid LLM, you've created a target. So I sat down and designed for abuse before shipping it." This is the *"I thought about the threat model"* talking point.
+
+**The threat model — what an attacker (or an accident) can do to an open ingest endpoint:**
+- **DB pollution** — junk or adversarial nodes written straight into the curated graph.
+- **Cost / quota abuse** — hammering the endpoint to burn the Groq quota (a denial-of-wallet attack).
+- **Prompt injection / open LLM proxy** — using my endpoint as a free, anonymous LLM relay, or steering the extractor with injected instructions.
+- **Cypher injection via labels** — LLM-extracted `node_type` / relationship types interpolated into Cypher could inject query fragments (you can't always parameterize a label).
+- **Stored XSS** — untrusted ingested text later rendered in the browser viz.
+
+**The mitigations I actually implemented (each maps to a threat above):**
+- **Gated + safe-by-default** — both endpoints are off unless `INGEST_API_KEY` is set; unset → `404`. It's **left unset in the cloud**, so the public Vercel deployment has *no write path to prod at all*. Ingestion is a local, opt-in tool.
+- **`:Staged` quarantine + human approve** — `/ingest` writes only to a `:Staged` label; a separate `/ingest/approve` call promotes (MERGE) into the real graph. Nothing untrusted reaches the curated graph without a human in the loop. (Mitigates DB pollution.)
+- **API key with constant-time compare** — authenticated, and compared in constant time so the check can't be timing-attacked.
+- **Payload cap + rate limit** — bodies capped at 8 KB (`413`), in-memory limit of 10 ingests / 60 s per key (`429`). (Mitigates cost/quota abuse and open-proxy use.)
+- **Closed-vocab validation before Cypher** — extracted `node_type` and relationship types are validated against the closed vocabulary *before* they're interpolated as labels/rel-types into any Cypher. (Mitigates Cypher injection.)
+- **Viz XSS fix** — the browser viz renders ids/labels via DOM `textContent` + escaping instead of `innerHTML`, so untrusted ingested content can't execute. (Mitigates stored XSS.)
+
+**Why it lands in an interview:** it shows defense in depth (gating → quarantine → validation → output encoding), the instinct to make the dangerous mode opt-in and off-in-cloud, and that I reason about *both* security (injection, XSS) *and* operational abuse (cost, rate). Designed for abuse, not just for the happy path.

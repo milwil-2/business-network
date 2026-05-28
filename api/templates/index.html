@@ -248,17 +248,28 @@
         });
         const data = await res.json();
         answerEl.textContent = data.answer || '(no answer)';
+        const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const cited = data.cited_node_ids || [];
         if (cited.length) {
-          citedEl.innerHTML = '<div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Grounded in:</div>' +
-            cited.map(id => `<span class="pill" onclick="highlight(['${id}'])">${id}</span>`).join('');
+          citedEl.replaceChildren();
+          const label = document.createElement('div');
+          label.style.cssText = 'font-size:11px;color:var(--muted);margin-bottom:4px;';
+          label.textContent = 'Grounded in:';
+          citedEl.appendChild(label);
+          cited.forEach(id => {
+            const pill = document.createElement('span');
+            pill.className = 'pill';
+            pill.textContent = id;
+            pill.addEventListener('click', () => highlight([id]));
+            citedEl.appendChild(pill);
+          });
           highlight(cited);
         }
         const sub = data.subgraph || {};
         const blocks = Object.keys(sub).map(id => {
           const edges = (sub[id] || []).map(e =>
-            `<span class="edge">&rarr; ${e.rel} &rarr; ${e.target_label} (${e.target_type})</span>`).join('');
-          return `<div class="grp"><b>${id}</b>${edges || '<span class="edge">(no outgoing edges)</span>'}</div>`;
+            `<span class="edge">&rarr; ${esc(e.rel)} &rarr; ${esc(e.target_label)} (${esc(e.target_type)})</span>`).join('');
+          return `<div class="grp"><b>${esc(id)}</b>${edges || '<span class="edge">(no outgoing edges)</span>'}</div>`;
         });
         if (blocks.length) {
           subEl.innerHTML = '<div style="margin-bottom:6px;">Subgraph:</div>' + blocks.join('');
