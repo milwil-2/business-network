@@ -1,86 +1,112 @@
-"""Chroma vector store for semantic search over knowledge-graph nodes.
+"""Cloud-native semantic search backed by Neo4j's native vector index.
 
-Lazy module-level singletons keep importing this module cheap and crash-free:
-the Chroma client, embedding model, and collection are only created on first use.
+Two pieces:
 
-Contract:
-    semantic_search(query, k=6) -> list[{"id", "label", "type", "score"}]
-    (score = cosine similarity, higher = closer; best match first)
+1. ``embed_query`` — calls the HuggingFace Inference API endpoint for
+   ``sentence-transformers/all-MiniLM-L6-v2`` to turn a query string into a
+   384-dim cosine vector at request time. Reads ``HF_API_TOKEN`` from env.
+   On any auth / rate-limit / network failure it raises a generic
+   ``RuntimeError("embedding service unavailable")`` so the underlying
+   error never leaks to the API response.
+
+2. ``semantic_search`` — embeds the query, then asks Neo4j's native vector
+   index (``node_embedding`` on the ``:Embedded`` secondary label) for the
+   nearest k nodes. Scores come back already in [0, 1] (cosine similarity,
+   higher = closer), best match first.
+
+Node embeddings themselves are pre-computed locally and pushed to Neo4j
+once via ``vector/build_index.py``; only the query embedding hits HF at
+runtime.
 """
 
-from pathlib import Path
+import os
 
-import chromadb
-from chromadb.utils import embedding_functions
+import httpx
 
-CHROMA_DIR = Path(__file__).parent / "chroma"
-COLLECTION = "kg_nodes"
+from api.db import PRIMARY_TYPES, get_driver
 
-# Lazy singletons — created on first call to the getters below.
-_client = None
-_collection = None
-_embedding_fn = None
-
-
-def get_client() -> "chromadb.api.ClientAPI":
-    """Return the persistent Chroma client, creating it on first use."""
-    global _client
-    if _client is None:
-        _client = chromadb.PersistentClient(path=str(CHROMA_DIR))
-    return _client
+HF_EMBED_URL = (
+    "https://api-inference.huggingface.co/pipeline/feature-extraction/"
+    "sentence-transformers/all-MiniLM-L6-v2"
+)
+VECTOR_INDEX_NAME = "node_embedding"
+_EMBED_TIMEOUT_SECONDS = 5.0
 
 
-def get_embedding_fn():
-    """Return the local default embedding function (all-MiniLM-L6-v2, no API key)."""
-    global _embedding_fn
-    if _embedding_fn is None:
-        _embedding_fn = embedding_functions.DefaultEmbeddingFunction()
-    return _embedding_fn
+def embed_query(text: str) -> list[float]:
+    """Encode ``text`` as a 384-dim cosine vector via HF Inference API.
 
-
-def get_collection():
-    """Return the kg_nodes collection (cosine space), creating it on first use."""
-    global _collection
-    if _collection is None:
-        _collection = get_client().get_or_create_collection(
-            name=COLLECTION,
-            embedding_function=get_embedding_fn(),
-            metadata={"hnsw:space": "cosine"},
+    Raises ``RuntimeError("embedding service unavailable")`` for any auth,
+    rate-limit, timeout, or network failure — callers translate that into a
+    user-facing 502 / graceful degradation without leaking the underlying
+    cause.
+    """
+    token = os.environ.get("HF_API_TOKEN", "")
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        response = httpx.post(
+            HF_EMBED_URL,
+            headers=headers,
+            json={"inputs": text},
+            timeout=_EMBED_TIMEOUT_SECONDS,
         )
-    return _collection
+    except (httpx.TimeoutException, httpx.HTTPError):
+        raise RuntimeError("embedding service unavailable")
+
+    if response.status_code in (401, 403, 429):
+        raise RuntimeError("embedding service unavailable")
+    if response.status_code >= 400:
+        raise RuntimeError("embedding service unavailable")
+
+    try:
+        payload = response.json()
+    except ValueError:
+        raise RuntimeError("embedding service unavailable")
+
+    # The HF feature-extraction pipeline can return either a flat list
+    # ([float, ...]) or a nested list ([[float, ...]]) depending on the
+    # input shape. Normalize both to a flat list of floats.
+    if isinstance(payload, list) and payload and isinstance(payload[0], list):
+        payload = payload[0]
+    if not isinstance(payload, list) or not all(
+        isinstance(x, (int, float)) for x in payload
+    ):
+        raise RuntimeError("embedding service unavailable")
+    return [float(x) for x in payload]
 
 
 def semantic_search(query: str, k: int = 6) -> list[dict]:
     """Return the k nodes most semantically similar to ``query``.
 
     Each result is ``{"id": str, "label": str, "type": str, "score": float}``
-    with ``score`` a cosine similarity in [0, 1] (higher = closer), best first.
+    with ``score`` in [0, 1] (cosine similarity from Neo4j's native vector
+    index), best match first.
 
-    Raises RuntimeError if the index has not been built yet so callers can
-    fall back to another search strategy.
+    Raises ``RuntimeError("embedding service unavailable")`` when the HF
+    Inference API call fails, so callers can degrade gracefully.
     """
-    col = get_collection()
-    if col.count() == 0:
-        raise RuntimeError(
-            "vector index is empty — run: uv run vector/build_index.py"
+    vec = embed_query(query)
+    with get_driver().session() as session:
+        records = session.run(
+            """
+            CALL db.index.vector.queryNodes($index, $k, $vec)
+            YIELD node, score
+            RETURN node.id AS id,
+                   node.label AS label,
+                   [l IN labels(node) WHERE l IN $primary][0] AS type,
+                   score
+            """,
+            index=VECTOR_INDEX_NAME,
+            k=k,
+            vec=vec,
+            primary=PRIMARY_TYPES,
         )
-
-    res = col.query(query_texts=[query], n_results=k)
-
-    ids = res["ids"][0]
-    distances = res["distances"][0]
-    metadatas = res["metadatas"][0]
-
-    results: list[dict] = []
-    for node_id, distance, meta in zip(ids, distances, metadatas):
-        meta = meta or {}
-        results.append(
+        return [
             {
-                "id": node_id,
-                "label": meta.get("label", node_id),
-                "type": meta.get("type", ""),
-                # cosine space: distance = 1 - similarity
-                "score": 1.0 - distance,
+                "id": r["id"],
+                "label": r["label"],
+                "type": r["type"],
+                "score": r["score"],
             }
-        )
-    return results
+            for r in records
+        ]
