@@ -15,7 +15,7 @@ Run:  uv run scripts/generate_b2b_vault.py
 Then: uv run sync/obsidian_to_neo4j.py --full   (after clearing the graph)
 
 The generator OWNS vault/nodes/: it wipes and rebuilds that tree on every run.
-It does not touch vault/inbox or vault/meta.
+It does not touch vault/meta.
 """
 
 from __future__ import annotations
