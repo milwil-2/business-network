@@ -12,4 +12,5 @@ vault/
 sync/
 cypher/
 tests/
+scripts/
 .git/

@@ -1,13 +1,13 @@
-# B2B Trade Network — Obsidian + Neo4j + FastAPI
+# B2B Trade Network: Obsidian + Neo4j + FastAPI
 
 A graph of a **B2B trade & trust network** (modeled on platforms like Nuvo): verified company profiles connected by trade relationships, with creditworthiness/trust signals, the people who run them, the products and industries they trade in, and their licenses. Obsidian for human-friendly editing and visualization; Neo4j for real graph DB queries; a FastAPI layer for HTTP queries, an in-browser graph viz, and GraphRAG question answering.
 
 **Node types:** `Company`, `Person`, `Industry`, `Product`, `License`, `CreditBureau`.
 **Relationship types:** `SELLS_TO`, `SUPPLIES`, `OPERATES_IN`, `TRADES_PRODUCT`, `HOLDS_LICENSE`, `RATED_BY`, `PRINCIPAL_OF`, `GAVE_REFERENCE_FOR`, `SUBSIDIARY_OF`, `PARTNERS_WITH`, `COMPETES_WITH`, `INVITED`.
 
-Each `Company` also carries first-class **trade-role labels** (`Buyer`/`Seller`/`Vendor`/`Customer`) as *secondary* Neo4j labels derived from its trade edges during sync — so `MATCH (b:Buyer)` works directly while each business remains a single node (the same node just holds extra labels alongside its primary `:Company` label).
+Each `Company` also carries first-class **trade-role labels** (`Buyer`/`Seller`/`Vendor`/`Customer`) as *secondary* Neo4j labels derived from its trade edges during sync, so `MATCH (b:Buyer)` works directly while each business remains a single node (the same node just holds extra labels alongside its primary `:Company` label).
 
-The dataset (~130 nodes) is **mock / generated** data (real company data will be added in the future), produced by a seeded script — `uv run scripts/generate_b2b_vault.py` — which writes the Obsidian vault and embeds deliberate, query-able patterns: trust clusters, a fraud ring (companies sharing principals), supply chains, and trust hubs.
+The dataset (~130 nodes) is **mock / generated** data (real company data will be added in the future), produced by a seeded script (`uv run scripts/generate_b2b_vault.py`) that writes the Obsidian vault and embeds patterns you can query for: trust clusters, a fraud ring (companies sharing principals), supply chains, and trust hubs.
 
 ## Architecture
 
@@ -25,12 +25,12 @@ browser viz
 
 Two LLM touchpoints, both via **Groq** (`groq`, Llama 3.3 70B):
 
-- **`sync/extract.py`** — turns raw notes into typed graph nodes.
-- **`api/rag.py`** — GraphRAG question answering, using Neo4j neighborhood expansion as LLM context.
+- **`sync/extract.py`** turns raw notes into typed graph nodes.
+- **`api/rag.py`** does GraphRAG question answering, using Neo4j neighborhood expansion as LLM context.
 
 ## Trust score
 
-Each `Company` carries a **calculated** `trust_score` (0–100) — a weighted composite of the company's own data points and its network signals, computed in `scripts/generate_b2b_vault.py`:
+Each `Company` carries a **calculated** `trust_score` (0 to 100), a weighted composite of the company's own data points and its network signals, computed in `scripts/generate_b2b_vault.py`:
 
 | Component | Weight | Derived from |
 |---|---|---|
@@ -41,7 +41,7 @@ Each `Company` carries a **calculated** `trust_score` (0–100) — a weighted c
 | Longevity | 8 | years in business |
 | Principal integrity | 10 | drops to 0 if an owner is also a principal of a **flagged** company (fraud signal) |
 
-The component sub-scores are stored as node properties (`trust_credit`, `trust_references`, …), so the browser viz shows a per-company breakdown when you click a node. Flagged fraud-ring companies score very low and densely-referenced hubs score high — emergent from the data, not hand-set.
+The component sub-scores are stored as node properties (`trust_credit`, `trust_references`, and so on), so the browser viz shows a per-company breakdown when you click a node. Flagged fraud-ring companies score very low and densely-referenced hubs score high. The scores emerge from the data, they are not hand-set.
 
 ---
 
@@ -63,8 +63,8 @@ cp .env.example .env
 
 Then fill in the values:
 
-- `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` — your Neo4j connection.
-- `GROQ_API_KEY` — get a free key at https://console.groq.com/keys (no credit card; powers `extract.py` and the GraphRAG `/ask`).
+- `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`: your Neo4j connection.
+- `GROQ_API_KEY`: get a free key at https://console.groq.com/keys (no credit card; powers `extract.py` and the GraphRAG `/ask`).
 
 For a local Neo4j Desktop DBMS, run `cypher/schema_constraints.cypher` once in the Neo4j Browser after creating the database.
 
@@ -108,7 +108,7 @@ On top of the graph, the project adds a semantic-search layer backed by a **Chro
 uv run vector/build_index.py
 ```
 
-This embeds every vault note and persists the store to `vector/chroma/` (gitignored). Embeddings are produced by a **local model** — `all-MiniLM-L6-v2` via onnxruntime, bundled with `chromadb` — so there is **no embeddings API key and no external service** to configure. (This matters because the Groq API has no embeddings endpoint.)
+This embeds every vault note and persists the store to `vector/chroma/` (gitignored). Embeddings are produced by a **local model** (`all-MiniLM-L6-v2` via onnxruntime, bundled with `chromadb`), so there is **no embeddings API key and no external service** to configure. (This matters because the Groq API has no embeddings endpoint.)
 
 ### `GET /semantic-search?q=...&k=6`
 
@@ -120,7 +120,7 @@ Returns the top-k nodes by semantic similarity as `[{id, label, type, score}]`.
 
 ### Local-first / deployment caveat
 
-`chromadb` is intentionally **not** in `requirements.txt`. As a result, the **Vercel deployment uses the graph-only fallback** for `/ask`, and `/semantic-search` returns `503` there — the vector layer runs locally. A cloud-ready path (not yet built) would use a managed vector DB (Qdrant/Pinecone) or **Neo4j's native vector index** alongside a hosted embedding API.
+`chromadb` is intentionally **not** in `requirements.txt`. As a result, the **Vercel deployment uses the graph-only fallback** for `/ask`, and `/semantic-search` returns `503` there. The vector layer runs locally. A cloud-ready path (not yet built) would use a managed vector DB (Qdrant/Pinecone) or **Neo4j's native vector index** alongside a hosted embedding API.
 
 ---
 
@@ -130,20 +130,20 @@ Beyond the vault-driven sync, the API exposes a gated, **safe-by-default** HTTP 
 
 ### Endpoints
 
-- **`POST /ingest`** (header `X-API-Key`) — accepts `{ "text": "..." }`, runs Groq (Llama 3.3) extraction, and writes the resulting nodes into a quarantine **`:Staged`** label in Neo4j. It never writes directly into the curated graph.
-- **`POST /ingest/approve`** (same `X-API-Key`) — promotes the `:Staged` nodes into the real graph (idempotent `MERGE`) and removes the staged copies.
+- **`POST /ingest`** (header `X-API-Key`) accepts `{ "text": "..." }`, runs Groq (Llama 3.3) extraction, and writes the resulting nodes into a quarantine **`:Staged`** label in Neo4j. It never writes directly into the curated graph.
+- **`POST /ingest/approve`** (same `X-API-Key`) promotes the `:Staged` nodes into the real graph (idempotent `MERGE`) and removes the staged copies.
 
 So the flow is always **extract → `:Staged` quarantine → human approve → curated graph**.
 
 ### Gating / safe-by-default
 
-Both endpoints are **disabled unless the `INGEST_API_KEY` env var is set** — when it is unset they return `404` (the routes effectively don't exist). The key is intentionally **left unset on the Vercel deployment**, so there is **no public write path to prod**. To use ingestion, set `INGEST_API_KEY` locally. Authentication compares the supplied key with a **constant-time comparison**.
+Both endpoints are **disabled unless the `INGEST_API_KEY` env var is set**. When it is unset they return `404` (the routes effectively don't exist). The key is intentionally **left unset on the Vercel deployment**, so there is **no public write path to prod**. To use ingestion, set `INGEST_API_KEY` locally. Authentication compares the supplied key with a **constant-time comparison**.
 
 ### Abuse protections
 
-- **Payload cap** — request bodies over **8 KB** are rejected with `413`.
-- **Rate limit** — an in-memory limit of **10 ingests / 60 s per key** returns `429` when exceeded.
-- **Closed-vocab validation** — extracted `node_type` and relationship types are validated against the closed vocabulary **before any Cypher write**, so labels and relationship types can't inject Cypher.
+- **Payload cap:** request bodies over **8 KB** are rejected with `413`.
+- **Rate limit:** an in-memory limit of **10 ingests / 60 s per key** returns `429` when exceeded.
+- **Closed-vocab validation:** extracted `node_type` and relationship types are validated against the closed vocabulary **before any Cypher write**, so labels and relationship types can't inject Cypher.
 
 Related hardening shipped alongside: the browser viz now renders node ids/labels safely (DOM `textContent` + escaping instead of `innerHTML`), so untrusted ingested content can't cause stored XSS.
 
@@ -167,11 +167,11 @@ The repo includes `vercel.json` and `requirements.txt`, so Vercel's Python runti
 
 1. Deploy with the Vercel CLI (`vercel`) or via the Vercel git integration.
 2. In the Vercel project **Settings → Environment Variables**, set:
-   - `NEO4J_URI` — your Aura `neo4j+s://...` URI
-   - `NEO4J_USER` — usually `neo4j`
-   - `NEO4J_PASSWORD` — your Aura password
-   - `GROQ_API_KEY` — your Groq key
-   - `INGEST_API_KEY` (optional) — enables the gated `/ingest` endpoints; **leave unset in the cloud** so there is no public write path to prod (see "Ingesting data (gated)").
+   - `NEO4J_URI`: your Aura `neo4j+s://...` URI
+   - `NEO4J_USER`: usually `neo4j`
+   - `NEO4J_PASSWORD`: your Aura password
+   - `GROQ_API_KEY`: your Groq key
+   - `INGEST_API_KEY` (optional): enables the gated `/ingest` endpoints; **leave unset in the cloud** so there is no public write path to prod (see "Ingesting data (gated)").
 
 Note: the public deployment talks to Aura, not your local DB.
 
@@ -184,12 +184,12 @@ Secrets live only in `.env` (gitignored) locally, and in the Vercel and Aura das
 ## Project layout
 
 ```
-vault/    Obsidian notes — one .md file per graph node (companies, people, industries, products, licenses, bureaus)
-sync/     Python tooling — parse vault, idempotent MERGE into Neo4j, LLM node extraction, live watcher
-api/      FastAPI app — HTTP queries, browser graph viz, GraphRAG (api/index.py exposes `app`)
+vault/    Obsidian notes - one .md file per graph node (companies, people, industries, products, licenses, bureaus)
+sync/     Python tooling - parse vault, idempotent MERGE into Neo4j, LLM node extraction, live watcher
+api/      FastAPI app - HTTP queries, browser graph viz, GraphRAG (api/index.py exposes `app`)
 vector/   Chroma vector store (store.py = access + semantic_search; build_index.py = CLI to embed the vault)
 cypher/   schema_constraints.cypher (run once), demo_queries.cypher, seed_verify.cypher
-scripts/  generate_b2b_vault.py — seeded generator that (re)builds the vault/nodes dataset
+scripts/  generate_b2b_vault.py - seeded generator that (re)builds the vault/nodes dataset
 tests/    pytest suite
 ```
 

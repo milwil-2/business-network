@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>B2B Trade Network</title>
-  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"
+          integrity="sha384-yxKDWWf0wwdUj/gPeuL11czrnKFQROnLgY8ll7En9NYoXibgg3C6NK/UDHNtUgWJ"
+          crossorigin="anonymous"></script>
   <style>
     :root {
       --bg: #0f1419;
@@ -171,7 +173,7 @@
 <body>
   <header>
     <h1>B2B Trade Network</h1>
-    <span class="badge" title="All data shown is mock/generated for demonstration. Real company data will be added in the future.">Mock data &middot; demo</span>
+    <span class="badge" title="The data here is generated for the demo. Real company data comes later.">Mock data</span>
     <span class="counts" id="counts">loading&hellip;</span>
   </header>
   <div class="main">
@@ -180,17 +182,17 @@
       <div class="section">
         <h2>About</h2>
         <div class="about">
-          A <b>B2B trade &amp; trust network</b> — a graph of businesses that
-          <b>buy from</b>, <b>sell to</b>, and <b>supply</b> one another. Every company is a
-          buyer / seller / vendor with a <b>calculated trust score</b> derived from its own
-          data (credit, licenses, age, verification) and its network signals (trade
-          references, shared principals). Click any company to see how its score is built.
-          Every company also carries first-class <b>trade-role labels</b> &mdash;
-          Buyer / Seller / Vendor / Customer &mdash; derived from its trade edges, so
-          queries like <b>MATCH (b:Buyer)</b> work while each business stays a single node.
+          A <b>B2B trade and trust network</b>: a graph of businesses that buy from,
+          sell to, and supply each other. Each company acts as a buyer, seller, or vendor
+          and gets a <b>trust score</b> calculated from its own data (credit, licenses, age,
+          verification) plus its trade connections (references it has received, owners it
+          shares). Click any company to see how its score breaks down.
           <br /><br />
-          <b>Note:</b> all data shown is <b>mock / generated</b> for demonstration &mdash;
-          real company data will be added in the future.
+          Companies also carry <b>trade-role labels</b> (Buyer, Seller, Vendor, Customer)
+          built from their trade edges, so a query like <b>MATCH (b:Buyer)</b> works while
+          each business stays one node.
+          <br /><br />
+          The data here is generated for the demo. Real company data comes later.
         </div>
       </div>
       <div class="section">
@@ -219,22 +221,21 @@
           <div class="row"><div class="top"><b>Principal integrity</b><span>10</span></div><div class="bar"><span style="width:33%"></span></div></div>
         </div>
         <div class="about" style="margin-top:10px;">
-          A weighted composite (0&ndash;100). <b>Principal integrity</b> drops to 0 when a
-          company shares an owner with a <b>flagged</b> business &mdash; the fraud signal.
+          A weighted score from 0 to 100. <b>Principal integrity</b> drops to 0 when a
+          company shares an owner with a <b>flagged</b> business, which is the main fraud signal.
         </div>
       </div>
       <div class="section">
         <h2>GraphRAG</h2>
         <div class="ask-row">
-          <input id="question" type="text" placeholder="Ask about the network&hellip;"
-                 onkeydown="if(event.key==='Enter')ask()" />
-          <button id="askBtn" onclick="ask()">Ask</button>
+          <input id="question" type="text" placeholder="Ask about the network&hellip;" />
+          <button id="askBtn">Ask</button>
         </div>
         <div class="chips">
-          <span class="chip" onclick="askExample('Which companies look risky or fraudulent, and why?')">Who looks risky?</span>
-          <span class="chip" onclick="askExample('Who are the most trusted companies in the network?')">Most trusted?</span>
-          <span class="chip" onclick="askExample('Which companies share a principal with a flagged business?')">Shared principals?</span>
-          <span class="chip" onclick="askExample('Which vendors supply the buyers a company already sells to?')">Vendor recommendations?</span>
+          <span class="chip" data-q="Which companies look risky or fraudulent, and why?">Who looks risky?</span>
+          <span class="chip" data-q="Who are the most trusted companies in the network?">Most trusted?</span>
+          <span class="chip" data-q="Which companies share a principal with a flagged business?">Shared principals?</span>
+          <span class="chip" data-q="Which vendors supply the buyers a company already sells to?">Vendor recommendations?</span>
         </div>
         <div id="answer" class="empty">Ask a question to ground an answer in the graph.</div>
         <div class="cited" id="cited"></div>
@@ -267,7 +268,7 @@ ORDER BY v.trust_score DESC LIMIT 10;</pre>
     </aside>
   </div>
 
-  <script>
+  <script nonce="__CSP_NONCE__">
     const COLORS = {
       Company: getCSS('--company'),
       Person: getCSS('--person'),
@@ -475,6 +476,14 @@ ORDER BY v.trust_score DESC LIMIT 10;</pre>
         btn.disabled = false;
       }
     }
+
+    document.getElementById('askBtn').addEventListener('click', ask);
+    document.getElementById('question').addEventListener('keydown', e => {
+      if (e.key === 'Enter') ask();
+    });
+    document.querySelectorAll('.chip[data-q]').forEach(chip => {
+      chip.addEventListener('click', () => askExample(chip.dataset.q));
+    });
 
     loadHealth();
     loadGraph();
