@@ -22,5 +22,9 @@ CREATE CONSTRAINT credit_bureau_id IF NOT EXISTS
 CREATE INDEX node_label IF NOT EXISTS
   FOR (n:Company) ON (n.label);
 
+CREATE VECTOR INDEX node_embedding IF NOT EXISTS
+FOR (n:Embedded) ON (n.embedding)
+OPTIONS { indexConfig: { `vector.dimensions`: 384, `vector.similarity_function`: 'cosine' } };
+
 // Verify constraints were created:
 SHOW CONSTRAINTS;

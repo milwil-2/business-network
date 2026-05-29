@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+from vector.store import semantic_search as _semantic_search
+
 from . import db, ingest, rag
 
 app = FastAPI(title="B2B Trade Network API")
@@ -96,15 +98,14 @@ def semantic_search(
     q: str = Query(..., min_length=1, max_length=200),
     k: int = Query(6, ge=1, le=25),
 ):
-    # Lazy import so the app still loads where chromadb is absent (Vercel).
+    # The HF query encoder can fail (auth / rate limit / network); the store
+    # raises a generic RuntimeError so we never leak the underlying error.
     try:
-        from vector.store import semantic_search as _semantic_search
-
         return _semantic_search(q, k=k)
-    except Exception:
+    except RuntimeError:
         return JSONResponse(
-            status_code=503,
-            content={"error": "semantic search is unavailable"},
+            status_code=502,
+            content={"error": "semantic search is temporarily unavailable"},
         )
 
 
