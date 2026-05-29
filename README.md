@@ -25,7 +25,7 @@ browser viz
 
 Two LLM touchpoints, both via **Groq** (`groq`, Llama 3.3 70B):
 
-- **`sync/extract.py`** turns raw notes into typed graph nodes.
+- **`api/ingest.py`** runs gated LLM extraction on posted text, staging the result for human review before it touches the curated graph.
 - **`api/rag.py`** does GraphRAG question answering, using Neo4j neighborhood expansion as LLM context.
 
 ## Trust score
@@ -64,7 +64,7 @@ cp .env.example .env
 Then fill in the values:
 
 - `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`: your Neo4j connection.
-- `GROQ_API_KEY`: get a free key at https://console.groq.com/keys (no credit card; powers `extract.py` and the GraphRAG `/ask`).
+- `GROQ_API_KEY`: get a free key at https://console.groq.com/keys (no credit card; powers the GraphRAG `/ask` and the gated `/ingest` extraction).
 
 For a local Neo4j Desktop DBMS, run `cypher/schema_constraints.cypher` once in the Neo4j Browser after creating the database.
 
@@ -84,13 +84,7 @@ Then open http://localhost:8000 for the interactive graph visualization.
 
 API routes: `GET /` (HTML graph viz), `GET /health`, `GET /graph`, `GET /nodes/{id}`, `GET /nodes/{id}/neighbors`, `GET /path`, `GET /search`, `POST /ask` (GraphRAG).
 
-### 5. Extract nodes from notes (optional)
-
-```bash
-uv run sync/extract.py --inbox
-```
-
-### 6. Run tests
+### 5. Run tests
 
 ```bash
 uv run pytest
@@ -185,7 +179,7 @@ Secrets live only in `.env` (gitignored) locally, and in the Vercel and Aura das
 
 ```
 vault/    Obsidian notes - one .md file per graph node (companies, people, industries, products, licenses, bureaus)
-sync/     Python tooling - parse vault, idempotent MERGE into Neo4j, LLM node extraction, live watcher
+sync/     Python tooling - parse vault, idempotent MERGE into Neo4j, live watcher
 api/      FastAPI app - HTTP queries, browser graph viz, GraphRAG (api/index.py exposes `app`)
 vector/   Chroma vector store (store.py = access + semantic_search; build_index.py = CLI to embed the vault)
 cypher/   schema_constraints.cypher (run once), demo_queries.cypher, seed_verify.cypher
