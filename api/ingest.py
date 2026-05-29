@@ -136,7 +136,7 @@ def extract(text: str) -> list[ExtractedNode]:
             "LLM rate limit hit — wait a minute and try again."
         ) from e
     except APIError as e:
-        raise RuntimeError(f"LLM error: {e}") from e
+        raise RuntimeError("LLM extraction is temporarily unavailable.") from e
     return ExtractionResult.model_validate_json(
         resp.choices[0].message.content
     ).nodes

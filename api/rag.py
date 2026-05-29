@@ -97,9 +97,9 @@ def answer_question(question: str) -> dict:
             "cited_node_ids": [],
             "subgraph": {},
         }
-    except APIError as e:
+    except APIError:
         return {
-            "answer": f"LLM error: {e}",
+            "answer": "The language model is temporarily unavailable. Please try again.",
             "cited_node_ids": [],
             "subgraph": {},
         }

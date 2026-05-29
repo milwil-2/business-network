@@ -857,7 +857,6 @@ dependencies = [
     { name = "fastapi" },
     { name = "groq" },
     { name = "neo4j" },
-    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "python-frontmatter" },
     { name = "pyyaml" },
@@ -867,6 +866,11 @@ dependencies = [
     { name = "watchdog" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "certifi", specifier = ">=2024.0.0" },
@@ -874,7 +878,6 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.110.0" },
     { name = "groq", specifier = ">=0.11.0" },
     { name = "neo4j", specifier = ">=5.0.0" },
-    { name = "pytest", specifier = ">=8.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-frontmatter", specifier = ">=1.1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
@@ -883,6 +886,9 @@ requires-dist = [
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27.0" },
     { name = "watchdog", specifier = ">=3.0.0" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=8.0.0" }]
 
 [[package]]
 name = "kubernetes"
