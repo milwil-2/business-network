@@ -28,6 +28,8 @@ Two LLM touchpoints, both via **Groq** (`groq`, Llama 3.3 70B):
 - **`api/ingest.py`** runs gated LLM extraction on posted text, staging the result for human review before it touches the curated graph.
 - **`api/rag.py`** does GraphRAG question answering, using Neo4j neighborhood expansion as LLM context.
 
+Plus one embeddings touchpoint via **HuggingFace Inference API** (`sentence-transformers/all-MiniLM-L6-v2`) for runtime query encoding — see "Vector search & hybrid GraphRAG" below.
+
 ## Trust score
 
 Each `Company` carries a **calculated** `trust_score` (0 to 100), a weighted composite of the company's own data points and its network signals, computed in `scripts/generate_b2b_vault.py`:
@@ -94,27 +96,23 @@ uv run pytest
 
 ## Vector search & hybrid GraphRAG
 
-On top of the graph, the project adds a semantic-search layer backed by a **Chroma vector store** (HNSW index, RAM-resident) built from the vault notes.
+The project adds a semantic-search layer backed by **Neo4j's native vector index** (HNSW, cosine, 384-dim). Node embeddings are pre-computed locally with `sentence-transformers/all-MiniLM-L6-v2` and pushed up to Neo4j once; runtime query encoding hits the **HuggingFace Inference API** with the same model, so no embedding model has to ship to Vercel.
 
-### Build the index
+### Build the index (once)
 
 ```bash
-uv run vector/build_index.py
+uv run --group dev vector/build_index.py
 ```
 
-This embeds every vault note and persists the store to `vector/chroma/` (gitignored). Embeddings are produced by a **local model** (`all-MiniLM-L6-v2` via onnxruntime, bundled with `chromadb`), so there is **no embeddings API key and no external service** to configure. (This matters because the Groq API has no embeddings endpoint.)
+This walks `vault/nodes/**/*.md`, embeds each node locally (downloads the all-MiniLM-L6-v2 weights on first run), then `MERGE`-es the 384-dim `embedding` property and the secondary `:Embedded` label onto each node in Neo4j Aura. The vector index itself (`node_embedding`) is created by `cypher/schema_constraints.cypher` — run that once in the Aura query editor before the first build.
 
 ### `GET /semantic-search?q=...&k=6`
 
-Returns the top-k nodes by semantic similarity as `[{id, label, type, score}]`.
+Returns the top-k nodes by semantic similarity as `[{id, label, type, score}]`. The handler calls the HuggingFace Inference API to embed the query, then `db.index.vector.queryNodes(...)` against Neo4j Aura. Requires `HF_API_TOKEN` in env (free HF account, get one at https://huggingface.co/settings/tokens). If the embedding service is unreachable, the route returns `502` with a generic message and the underlying error is not exposed.
 
 ### Hybrid `POST /ask` (GraphRAG)
 
-`POST /ask` is now a hybrid GraphRAG flow: vector search finds the top-k relevant seed nodes → the graph expands their neighbors → the LLM (Groq Llama 3.3) answers and cites the node ids it used. If the vector index or `chromadb` is unavailable, `/ask` **falls back to graph-only** retrieval (passing all node summaries as context), so behavior degrades gracefully.
-
-### Local-first / deployment caveat
-
-`chromadb` is intentionally **not** in `requirements.txt`. As a result, the **Vercel deployment uses the graph-only fallback** for `/ask`, and `/semantic-search` returns `503` there. The vector layer runs locally. A cloud-ready path (not yet built) would use a managed vector DB (Qdrant/Pinecone) or **Neo4j's native vector index** alongside a hosted embedding API.
+`POST /ask` is a hybrid GraphRAG flow: vector search finds the top-k relevant seed nodes → the graph expands their neighbors → the LLM (Groq Llama 3.3) answers and cites the node ids it used. If the HuggingFace embedding service is unavailable, `/ask` **falls back to graph-only** retrieval (passing all node summaries as context), so behavior degrades gracefully.
 
 ---
 
@@ -165,6 +163,7 @@ The repo includes `vercel.json` and `requirements.txt`, so Vercel's Python runti
    - `NEO4J_USER`: usually `neo4j`
    - `NEO4J_PASSWORD`: your Aura password
    - `GROQ_API_KEY`: your Groq key
+   - `HF_API_TOKEN`: HuggingFace Inference API token (for runtime query embeddings on `/semantic-search` and `/ask`).
    - `INGEST_API_KEY` (optional): enables the gated `/ingest` endpoints; **leave unset in the cloud** so there is no public write path to prod (see "Ingesting data (gated)").
 
 Note: the public deployment talks to Aura, not your local DB.
@@ -181,7 +180,7 @@ Secrets live only in `.env` (gitignored) locally, and in the Vercel and Aura das
 vault/    Obsidian notes - one .md file per graph node (companies, people, industries, products, licenses, bureaus)
 sync/     Python tooling - parse vault, idempotent MERGE into Neo4j, live watcher
 api/      FastAPI app - HTTP queries, browser graph viz, GraphRAG (api/index.py exposes `app`)
-vector/   Chroma vector store (store.py = access + semantic_search; build_index.py = CLI to embed the vault)
+vector/   Semantic search (store.py = HF query encoder + Neo4j vector-index lookup; build_index.py = local sentence-transformers indexer)
 cypher/   schema_constraints.cypher (run once), demo_queries.cypher, seed_verify.cypher
 scripts/  generate_b2b_vault.py - seeded generator that (re)builds the vault/nodes dataset
 tests/    pytest suite

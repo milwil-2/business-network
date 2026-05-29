@@ -1,68 +1,163 @@
-"""Self-contained tests for the vector store.
+"""Hermetic tests for vector.store (HF query encoder + Neo4j vector index).
 
-These build a tiny temporary Chroma collection in tmp_path so they never depend
-on the production vector/chroma index. The embedding model is initialized inside
-a try/except; if it can't be created (e.g. offline CI), the tests are skipped
-rather than hard-failing.
+No network, no real HF API, no real Neo4j. We monkeypatch ``httpx.post``
+to fake the HF Inference API response, and patch ``api.db.get_driver`` to
+return a fake driver whose session yields the records we hand it.
 """
 
-import chromadb
+from unittest import mock
+
 import pytest
-from chromadb.utils import embedding_functions
 
-# Try to construct the embedding function once at import time. If it fails
-# (no network to download the onnx model, etc.) skip the whole module.
-try:
-    _EF = embedding_functions.DefaultEmbeddingFunction()
-    # Force the model to actually load so we skip on download failures too.
-    _EF(["warmup text"])
-    _EF_AVAILABLE = True
-except Exception:  # pragma: no cover - environment dependent
-    _EF = None
-    _EF_AVAILABLE = False
+import vector.store as store
 
-pytestmark = pytest.mark.skipif(
-    not _EF_AVAILABLE,
-    reason="DefaultEmbeddingFunction unavailable (offline / model download failed)",
-)
-
-SEED = {
-    "dijkstra": "Dijkstra. Single-source shortest path in weighted graphs.",
-    "bfs": "Breadth-first search. Breadth-first graph traversal of unweighted graphs.",
-    "redis": "Redis. In-memory cache and key-value data structure store.",
-    "cqrs": "CQRS. Command query responsibility segregation architectural pattern.",
-}
+EMBED_DIM = 384
 
 
-@pytest.fixture
-def collection(tmp_path):
-    client = chromadb.PersistentClient(path=str(tmp_path))
-    col = client.get_or_create_collection(
-        name="test_nodes",
-        embedding_function=_EF,
-        metadata={"hnsw:space": "cosine"},
+# --- embed_query -------------------------------------------------------
+
+def test_embed_query_posts_to_hf_with_bearer_token(monkeypatch):
+    """embed_query hits the right URL with the bearer token from env and
+    returns the embedding payload as a list of floats."""
+    monkeypatch.setenv("HF_API_TOKEN", "test-token-xyz")
+    vec = [0.01] * EMBED_DIM
+
+    fake_response = mock.Mock()
+    fake_response.status_code = 200
+    fake_response.json.return_value = vec
+
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured["url"] = url
+        captured["headers"] = headers
+        captured["json"] = json
+        captured["timeout"] = timeout
+        return fake_response
+
+    monkeypatch.setattr(store.httpx, "post", fake_post)
+
+    result = store.embed_query("hello world")
+
+    assert result == vec
+    assert captured["url"] == store.HF_EMBED_URL
+    assert captured["headers"]["Authorization"] == "Bearer test-token-xyz"
+    assert captured["json"] == {"inputs": "hello world"}
+    # Timeout is set; exact value is an implementation detail.
+    assert captured["timeout"] is not None
+
+
+def test_embed_query_accepts_nested_response(monkeypatch):
+    """HF can return [[float, ...]]; embed_query normalizes it."""
+    monkeypatch.setenv("HF_API_TOKEN", "tok")
+    vec = [0.5] * EMBED_DIM
+    fake_response = mock.Mock(status_code=200)
+    fake_response.json.return_value = [vec]
+    monkeypatch.setattr(
+        store.httpx,
+        "post",
+        lambda *a, **kw: fake_response,
     )
-    col.upsert(
-        ids=list(SEED.keys()),
-        documents=list(SEED.values()),
-        metadatas=[{"label": k, "type": "Test"} for k in SEED],
+    assert store.embed_query("q") == vec
+
+
+def test_embed_query_auth_error_raises_generic_runtime_error(monkeypatch):
+    """A 401 must surface as a generic 'embedding service unavailable'
+    RuntimeError — the underlying status / body must not leak."""
+    monkeypatch.setenv("HF_API_TOKEN", "bad")
+    fake_response = mock.Mock(status_code=401)
+    fake_response.json.return_value = {"error": "invalid credentials"}
+    monkeypatch.setattr(
+        store.httpx,
+        "post",
+        lambda *a, **kw: fake_response,
     )
-    return col
+    with pytest.raises(RuntimeError) as excinfo:
+        store.embed_query("q")
+    assert str(excinfo.value) == "embedding service unavailable"
 
 
-def test_semantic_search_ranks_relevant_node_first(collection):
-    res = collection.query(
-        query_texts=["weighted shortest path algorithm"], n_results=2
+def test_embed_query_rate_limit_raises_generic_runtime_error(monkeypatch):
+    monkeypatch.setenv("HF_API_TOKEN", "tok")
+    fake_response = mock.Mock(status_code=429)
+    fake_response.json.return_value = {"error": "rate limited"}
+    monkeypatch.setattr(
+        store.httpx,
+        "post",
+        lambda *a, **kw: fake_response,
     )
-    ids = res["ids"][0]
-    assert "dijkstra" in ids
-    assert "redis" not in ids[:1]  # dijkstra should outrank the cache store
+    with pytest.raises(RuntimeError, match="embedding service unavailable"):
+        store.embed_query("q")
 
 
-def test_cosine_score_in_range(collection):
-    res = collection.query(query_texts=["graph traversal"], n_results=4)
-    distances = res["distances"][0]
-    scores = [1.0 - d for d in distances]
-    assert all(-1.0001 <= s <= 1.0001 for s in scores)
-    # Results come back best-first, so scores are non-increasing.
+def test_embed_query_timeout_raises_generic_runtime_error(monkeypatch):
+    monkeypatch.setenv("HF_API_TOKEN", "tok")
+
+    def boom(*a, **kw):
+        raise store.httpx.ConnectTimeout("slow")
+
+    monkeypatch.setattr(store.httpx, "post", boom)
+    with pytest.raises(RuntimeError, match="embedding service unavailable"):
+        store.embed_query("q")
+
+
+# --- semantic_search ---------------------------------------------------
+
+def _fake_record(id_, label, type_, score):
+    """Minimal stand-in for a neo4j.Record: supports r[key] indexing."""
+    data = {"id": id_, "label": label, "type": type_, "score": score}
+    return mock.MagicMock(__getitem__=lambda self, k: data[k])
+
+
+def test_semantic_search_chains_embed_and_query(monkeypatch):
+    """semantic_search embeds the query, runs the parameterized vector
+    query against Neo4j, and returns results best-first."""
+    vec = [0.1] * EMBED_DIM
+    monkeypatch.setattr(store, "embed_query", lambda text: vec)
+
+    records = [
+        _fake_record("acme", "Acme Foods", "Company", 0.92),
+        _fake_record("globex", "Globex", "Company", 0.81),
+        _fake_record("initech", "Initech", "Company", 0.55),
+    ]
+    session = mock.MagicMock()
+    session.run.return_value = iter(records)
+
+    driver = mock.MagicMock()
+    driver.session.return_value.__enter__.return_value = session
+    driver.session.return_value.__exit__.return_value = False
+
+    monkeypatch.setattr(store, "get_driver", lambda: driver)
+
+    out = store.semantic_search("food distributor", k=3)
+
+    # Shape: list of dicts with the documented keys.
+    assert out == [
+        {"id": "acme", "label": "Acme Foods", "type": "Company", "score": 0.92},
+        {"id": "globex", "label": "Globex", "type": "Company", "score": 0.81},
+        {"id": "initech", "label": "Initech", "type": "Company", "score": 0.55},
+    ]
+    # Scores are returned non-increasing (Neo4j's vector index orders that way).
+    scores = [r["score"] for r in out]
     assert scores == sorted(scores, reverse=True)
+
+    # The query was parameterized — vector and k are passed as params, not
+    # interpolated into the Cypher text.
+    assert session.run.call_count == 1
+    query_text, kwargs = session.run.call_args[0][0], session.run.call_args[1]
+    assert "db.index.vector.queryNodes" in query_text
+    assert "$index" in query_text and "$k" in query_text and "$vec" in query_text
+    assert kwargs["k"] == 3
+    assert kwargs["vec"] == vec
+    assert kwargs["index"] == store.VECTOR_INDEX_NAME
+
+
+def test_semantic_search_propagates_embedding_failure(monkeypatch):
+    """If embed_query raises, semantic_search propagates the same
+    RuntimeError so callers can degrade gracefully."""
+    def boom(text):
+        raise RuntimeError("embedding service unavailable")
+
+    monkeypatch.setattr(store, "embed_query", boom)
+    with pytest.raises(RuntimeError, match="embedding service unavailable"):
+        store.semantic_search("q", k=3)
