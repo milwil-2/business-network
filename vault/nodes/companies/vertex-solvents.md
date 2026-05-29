@@ -3,46 +3,62 @@ id: vertex-solvents
 label: Vertex Solvents
 node_type: Company
 properties:
-  annual_revenue_usd: 12000000
+  annual_revenue_usd: 35000000
   credit_rating: AA
-  employee_count: 12
-  fico: 761
-  founded_year: 1993
-  hq_location: Tacoma, WA
+  employee_count: 600
+  fico: 696
+  founded_year: 1998
+  hq_location: Fresno, CA
+  references_received: 0
   status: verified
-  trust_score: 82
+  trust_credit: 24.0
+  trust_integrity: 10.0
+  trust_license: 12.0
+  trust_longevity: 5.6
+  trust_references: 0.0
+  trust_score: 72
+  trust_status: 20.0
 relationships:
 - target: chemicals
   type: OPERATES_IN
-- target: polymer-resin
+- target: industrial-solvent
   type: TRADES_PRODUCT
-- target: equifax-business
+- target: dun-bradstreet
   type: RATED_BY
-- target: import-export-license
+- target: hazmat-handling-license
   type: HOLDS_LICENSE
-- target: motor-carrier-authority
+- target: food-handler-permit
   type: HOLDS_LICENSE
-- target: cascade-industries
+- target: summit-specialty-chemical
   type: SELLS_TO
-- target: trident-polymers
+- target: cascade-chemical-works
+  type: SELLS_TO
+- target: anchor-industries
+  type: SELLS_TO
+- target: lumen-polymers
   type: SUPPLIES
-- target: atlas-chemical-works
-  type: SUPPLIES
-- target: cardinal-wine-imports
-  type: PARTNERS_WITH
-- target: quartz-transport
-  type: GAVE_REFERENCE_FOR
-summary: Vertex Solvents — a verified chemicals business (trust 82/100, credit AA,
-  FICO 761).
+- target: meridian-building-supply
+  type: INVITED
+summary: Vertex Solvents — a verified chemicals business (trust 72/100, credit AA,
+  FICO 696).
 tags:
 - Company
 ---
 
-**Vertex Solvents** is a verified business in the [[chemicals]] sector, headquartered in Tacoma, WA and founded in 1993. Trust score **82/100**, credit rating **AA**, FICO **761**.
+**Vertex Solvents** is a verified business in the [[chemicals]] sector, headquartered in Fresno, CA and founded in 1998. Trust score **72/100**, credit rating **AA**, FICO **696**.
 
 ## Trade profile
 - Industry: Chemicals
-- Annual revenue: $12,000,000
-- Employees: 12
+- Annual revenue: $35,000,000
+- Employees: 600
+- Trade references received: 0
 
-Trade relationships are modeled as SELLS_TO / SUPPLIES edges; creditworthiness is asserted via RATED_BY a credit bureau.
+## Trust score breakdown (72/100)
+- Creditworthiness: 24.0/30
+- Trade references: 0.0/20
+- Verification status: 20.0/20
+- License validity: 12.0/12
+- Longevity: 5.6/8
+- Principal integrity: 10.0/10
+
+The business trust score is a weighted composite of the company's own data points (credit, licenses, age, verification) and its network signals (trade references, principal integrity).

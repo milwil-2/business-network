@@ -46,6 +46,19 @@ Example node + edge:
 
 ---
 
+## How the trust score is computed
+
+Each company's `trust_score` (0–100) is a **calculated weighted composite**, not a label — a good answer to "how is the score derived?":
+
+- **Creditworthiness (30)** — FICO blended with credit-rating tier.
+- **Trade references (20)** — inbound `GAVE_REFERENCE_FOR` count (network trust).
+- **Verification status (20)** — verified / pending / flagged.
+- **License validity (12)** — active vs. lapsed/revoked licenses held.
+- **Longevity (8)** — years in business.
+- **Principal integrity (10)** — drops to 0 when an owner is shared with a *flagged* company (the fraud signal).
+
+Component sub-scores are stored as `trust_*` node properties, so the viz shows a per-company breakdown on click. The talking point: trust blends a company's **own data points** (credit, licenses, age) with **graph/network signals** (who vouches for it, who runs it) — the network signals are exactly what a graph DB makes cheap to compute.
+
 ## The demo story (what to show)
 
 1. **Browser viz** — "This is the trade network. Each color is a node type: blue=Company, amber=Person, green=Industry, purple=Product, red=License, cyan=CreditBureau. Edges are typed trade/trust relationships."

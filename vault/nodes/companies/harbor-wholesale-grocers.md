@@ -3,42 +3,66 @@ id: harbor-wholesale-grocers
 label: Harbor Wholesale Grocers
 node_type: Company
 properties:
-  annual_revenue_usd: 2000000
-  credit_rating: A
-  employee_count: 12
-  fico: 738
-  founded_year: 2017
-  hq_location: Atlanta, GA
+  annual_revenue_usd: 60000000
+  credit_rating: BBB
+  employee_count: 600
+  fico: 780
+  founded_year: 2001
+  hq_location: Spokane, WA
+  references_received: 0
   status: verified
-  trust_score: 90
+  trust_credit: 24.1
+  trust_integrity: 10.0
+  trust_license: 12.0
+  trust_longevity: 5.0
+  trust_references: 0.0
+  trust_score: 71
+  trust_status: 20.0
 relationships:
 - target: food-service
   type: OPERATES_IN
+- target: cooking-oil
+  type: TRADES_PRODUCT
 - target: frozen-produce
   type: TRADES_PRODUCT
-- target: dun-bradstreet
+- target: equifax-business
   type: RATED_BY
-- target: contractor-license
+- target: hazmat-handling-license
   type: HOLDS_LICENSE
-- target: import-export-license
+- target: federal-liquor-permit
   type: HOLDS_LICENSE
-- target: highland-culinary-supply
+- target: lumen-foods
   type: SELLS_TO
-- target: copperline-food-distributors
+- target: crescent-foods
   type: SELLS_TO
-- target: vertex-polymers
-  type: SUBSIDIARY_OF
-summary: Harbor Wholesale Grocers — a verified food service business (trust 90/100,
-  credit A, FICO 738).
+- target: stonebridge-food-distributors
+  type: SELLS_TO
+- target: quartz-provisions
+  type: SUPPLIES
+- target: brightwater-foods
+  type: SUPPLIES
+- target: brightwater-foods
+  type: COMPETES_WITH
+summary: Harbor Wholesale Grocers — a verified food service business (trust 71/100,
+  credit BBB, FICO 780).
 tags:
 - Company
 ---
 
-**Harbor Wholesale Grocers** is a verified business in the [[food-service]] sector, headquartered in Atlanta, GA and founded in 2017. Trust score **90/100**, credit rating **A**, FICO **738**.
+**Harbor Wholesale Grocers** is a verified business in the [[food-service]] sector, headquartered in Spokane, WA and founded in 2001. Trust score **71/100**, credit rating **BBB**, FICO **780**.
 
 ## Trade profile
 - Industry: Food Service
-- Annual revenue: $2,000,000
-- Employees: 12
+- Annual revenue: $60,000,000
+- Employees: 600
+- Trade references received: 0
 
-Trade relationships are modeled as SELLS_TO / SUPPLIES edges; creditworthiness is asserted via RATED_BY a credit bureau.
+## Trust score breakdown (71/100)
+- Creditworthiness: 24.1/30
+- Trade references: 0.0/20
+- Verification status: 20.0/20
+- License validity: 12.0/12
+- Longevity: 5.0/8
+- Principal integrity: 10.0/10
+
+The business trust score is a weighted composite of the company's own data points (credit, licenses, age, verification) and its network signals (trade references, principal integrity).

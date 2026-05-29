@@ -6,7 +6,7 @@ properties:
   title: Owner
   verified: true
 relationships:
-- target: copperline-food-distributors
+- target: beacon-beverage-co
   type: PRINCIPAL_OF
 summary: Theo Bauer — Owner; principal of 1 company.
 tags:

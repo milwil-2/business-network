@@ -6,7 +6,7 @@ properties:
   title: CEO
   verified: true
 relationships:
-- target: cardinal-transport
+- target: lumen-polymers
   type: PRINCIPAL_OF
 summary: Camille Conley — CEO; principal of 1 company.
 tags:

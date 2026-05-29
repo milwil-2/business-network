@@ -6,7 +6,7 @@ properties:
   title: CFO
   verified: true
 relationships:
-- target: sunrise-brewing
+- target: sterling-polymers
   type: PRINCIPAL_OF
 summary: Ruth Holloway — CFO; principal of 1 company.
 tags:

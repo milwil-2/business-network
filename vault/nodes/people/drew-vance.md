@@ -6,7 +6,7 @@ properties:
   title: CEO
   verified: true
 relationships:
-- target: tideline-chemical-works
+- target: ironclad-logistics
   type: PRINCIPAL_OF
 summary: Drew Vance — CEO; principal of 1 company.
 tags:

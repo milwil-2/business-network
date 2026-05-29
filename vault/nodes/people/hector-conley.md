@@ -6,7 +6,7 @@ properties:
   title: President
   verified: true
 relationships:
-- target: cardinal-cement-works
+- target: cobalt-freight
   type: PRINCIPAL_OF
 summary: Hector Conley — President; principal of 1 company.
 tags:

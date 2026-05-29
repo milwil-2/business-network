@@ -6,7 +6,7 @@ properties:
   title: CFO
   verified: true
 relationships:
-- target: lumen-building-supply
+- target: vertex-wholesale-grocers
   type: PRINCIPAL_OF
 summary: Theo Lindqvist — CFO; principal of 1 company.
 tags:

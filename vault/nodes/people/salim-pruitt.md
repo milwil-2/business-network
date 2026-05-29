@@ -6,7 +6,7 @@ properties:
   title: Owner
   verified: true
 relationships:
-- target: harbor-freight
+- target: keystone-materials
   type: PRINCIPAL_OF
 summary: Salim Pruitt — Owner; principal of 1 company.
 tags:

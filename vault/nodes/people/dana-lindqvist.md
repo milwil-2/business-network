@@ -6,7 +6,7 @@ properties:
   title: President
   verified: true
 relationships:
-- target: ironclad-construction-supply
+- target: sunrise-logistics
   type: PRINCIPAL_OF
 summary: Dana Lindqvist — President; principal of 1 company.
 tags:

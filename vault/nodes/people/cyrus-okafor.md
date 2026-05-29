@@ -4,9 +4,9 @@ label: Cyrus Okafor
 node_type: Person
 properties:
   title: President
-  verified: true
+  verified: false
 relationships:
-- target: trident-culinary-supply
+- target: keystone-building-supply
   type: PRINCIPAL_OF
 summary: Cyrus Okafor — President; principal of 1 company.
 tags:

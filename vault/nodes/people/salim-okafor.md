@@ -6,7 +6,7 @@ properties:
   title: Owner
   verified: true
 relationships:
-- target: highland-culinary-supply
+- target: lumen-beverage-co
   type: PRINCIPAL_OF
 summary: Salim Okafor — Owner; principal of 1 company.
 tags:

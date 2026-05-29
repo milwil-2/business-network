@@ -6,7 +6,7 @@ properties:
   title: CFO
   verified: true
 relationships:
-- target: granite-logistics
+- target: meridian-building-supply
   type: PRINCIPAL_OF
 summary: Camille Abbas — CFO; principal of 1 company.
 tags:

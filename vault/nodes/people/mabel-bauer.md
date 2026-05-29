@@ -6,7 +6,7 @@ properties:
   title: CEO
   verified: true
 relationships:
-- target: trident-building-supply
+- target: lumen-foods
   type: PRINCIPAL_OF
 summary: Mabel Bauer — CEO; principal of 1 company.
 tags:

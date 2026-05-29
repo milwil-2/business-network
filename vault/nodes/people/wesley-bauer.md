@@ -4,9 +4,9 @@ label: Wesley Bauer
 node_type: Person
 properties:
   title: CFO
-  verified: false
+  verified: true
 relationships:
-- target: cascade-spirits
+- target: stonebridge-provisions
   type: PRINCIPAL_OF
 summary: Wesley Bauer — CFO; principal of 1 company.
 tags:

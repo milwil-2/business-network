@@ -6,7 +6,7 @@ properties:
   title: CEO
   verified: true
 relationships:
-- target: northgate-distribution
+- target: quartz-construction-supply
   type: PRINCIPAL_OF
 summary: Drew Frye — CEO; principal of 1 company.
 tags:

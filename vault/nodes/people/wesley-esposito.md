@@ -3,20 +3,14 @@ id: wesley-esposito
 label: Wesley Esposito
 node_type: Person
 properties:
-  title: Managing Partner
-  verified: true
+  title: CFO
+  verified: false
 relationships:
-- target: falcon-wholesale-grocers
+- target: copperline-industries
   type: PRINCIPAL_OF
-- target: vertex-polymers
-  type: PRINCIPAL_OF
-- target: trident-wine-imports
-  type: PRINCIPAL_OF
-- target: keystone-spirits
-  type: PRINCIPAL_OF
-summary: Wesley Esposito — Managing Partner; principal of 4 companies.
+summary: Wesley Esposito — CFO; principal of 1 company.
 tags:
 - Person
 ---
 
-**Wesley Esposito** serves as Managing Partner. Listed as a principal (PRINCIPAL_OF) on 4 business profile(s). Shared principals across multiple flagged companies are a fraud signal.
+**Wesley Esposito** serves as CFO. Listed as a principal (PRINCIPAL_OF) on 1 business profile(s). Shared principals across multiple flagged companies are a fraud signal.
