@@ -26,8 +26,8 @@ import httpx
 from api.db import PRIMARY_TYPES, get_driver
 
 HF_EMBED_URL = (
-    "https://api-inference.huggingface.co/pipeline/feature-extraction/"
-    "sentence-transformers/all-MiniLM-L6-v2"
+    "https://router.huggingface.co/hf-inference/models/"
+    "sentence-transformers/all-MiniLM-L6-v2/pipeline/feature-extraction"
 )
 VECTOR_INDEX_NAME = "node_embedding"
 _EMBED_TIMEOUT_SECONDS = 5.0
