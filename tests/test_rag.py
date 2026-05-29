@@ -1,18 +1,17 @@
 """Hermetic tests for the hybrid retrieval helper in api.rag.
 
 No network, no real Groq, no real vector index. We monkeypatch
-``vector.store.semantic_search`` (resolved at call time inside
-``_retrieve_context``) and the ``api.rag.db`` accessors.
+``api.rag.semantic_search`` (the local reference imported at module top)
+and the ``api.rag.db`` accessors.
 """
 
-import vector.store
 from api import rag
 
 
 def test_retrieve_context_hybrid(monkeypatch):
     """Vector seeds + neighbors produce a focused 'hybrid' context."""
     monkeypatch.setattr(
-        vector.store,
+        rag,
         "semantic_search",
         lambda query, k=6: [
             {
@@ -60,7 +59,7 @@ def test_retrieve_context_fallback(monkeypatch):
     def _raise(query, k=6):
         raise RuntimeError("vector index is empty")
 
-    monkeypatch.setattr(vector.store, "semantic_search", _raise)
+    monkeypatch.setattr(rag, "semantic_search", _raise)
     monkeypatch.setattr(
         rag.db,
         "all_node_summaries",
