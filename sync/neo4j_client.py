@@ -15,6 +15,19 @@ VALID_REL_TYPES = {
     "SUBSIDIARY_OF", "PARTNERS_WITH", "COMPETES_WITH", "INVITED",
 }
 
+# Secondary "trade role" labels applied to Company nodes, derived from trade
+# edges (a business can hold several at once). These are first-class Neo4j
+# labels — `MATCH (b:Buyer)` works — layered on top of the :Company label.
+VALID_ROLE_LABELS = {"Buyer", "Seller", "Vendor", "Customer"}
+# (role label, derivation pattern). Patterns are static — no user input is
+# interpolated — so this is injection-safe.
+ROLE_RULES = (
+    ("Buyer", "MATCH (c:Company)<-[:SELLS_TO]-() SET c:Buyer"),
+    ("Seller", "MATCH (c:Company)-[:SELLS_TO]->() SET c:Seller"),
+    ("Vendor", "MATCH (c:Company)-[:SUPPLIES]->() SET c:Vendor"),
+    ("Customer", "MATCH (c:Company)<-[:SUPPLIES]-() SET c:Customer"),
+)
+
 
 class Neo4jClient:
     def __init__(self, uri: str, user: str, password: str):
@@ -54,6 +67,23 @@ class Neo4jClient:
                 ).single()
             )
         return result and result[0] > 0
+
+    def apply_role_labels(self) -> dict:
+        """Derive trade-role labels (Buyer/Seller/Vendor/Customer) on Company
+        nodes from their SELLS_TO / SUPPLIES edges. Idempotent: clears the role
+        labels first, then re-applies, so it's safe to run on every sync.
+        """
+        with self._driver.session() as s:
+            s.run("MATCH (c:Company) REMOVE c:Buyer:Seller:Vendor:Customer")
+            for _role, query in ROLE_RULES:
+                s.run(query)
+            counts = {}
+            for role in ("Buyer", "Seller", "Vendor", "Customer"):
+                # Safe: role comes from the closed VALID_ROLE_LABELS set.
+                counts[role] = s.run(
+                    f"MATCH (c:{role}) RETURN count(c) AS c"
+                ).single()["c"]
+        return counts
 
     def node_count(self) -> int:
         with self._driver.session() as s:

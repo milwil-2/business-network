@@ -101,3 +101,21 @@ def test_write_relationship_builds_query(client):
     assert ":SELLS_TO" in query
     assert kwargs["src"] == "src-id"
     assert kwargs["tgt"] == "tgt-id"
+
+
+# --- apply_role_labels --------------------------------------------------
+
+def test_apply_role_labels(client):
+    c, session = client
+    # session is a MagicMock, so session.run(...).single() already returns a
+    # MagicMock — the count queries work without a real DB.
+    c.apply_role_labels()
+
+    queries = [call.args[0] for call in session.run.call_args_list]
+
+    # (a) role labels are cleared up front.
+    assert any("REMOVE c:Buyer:Seller:Vendor:Customer" in q for q in queries)
+
+    # (b) each role label is re-applied via a SET.
+    for clause in ("SET c:Buyer", "SET c:Seller", "SET c:Vendor", "SET c:Customer"):
+        assert any(clause in q for q in queries), clause
