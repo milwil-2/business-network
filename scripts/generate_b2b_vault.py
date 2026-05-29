@@ -22,9 +22,18 @@ from __future__ import annotations
 
 import random
 import shutil
+from collections import Counter
 from pathlib import Path
 
 import frontmatter
+
+CURRENT_YEAR = 2026
+RATING_FACTOR = {"AAA": 1.0, "AA": 0.92, "A": 0.84, "BBB": 0.7, "BB": 0.55,
+                 "B": 0.45, "CCC": 0.3, "CC": 0.2, "C": 0.12, "D": 0.0}
+STATUS_FACTOR = {"verified": 1.0, "pending": 0.55, "flagged": 0.0}
+# Trust-score component weights (sum to 100). Surfaced verbatim in the frontend.
+TRUST_WEIGHTS = {"credit": 30, "references": 20, "status": 20,
+                 "license": 12, "longevity": 8, "integrity": 10}
 
 SEED = 42
 VAULT = Path(__file__).resolve().parent.parent / "vault"
@@ -199,23 +208,20 @@ def main() -> None:
 
         if i in flagged_idx:
             status = "flagged"
-            trust = rng.randint(8, 34)
             fico = rng.randint(470, 560)
             rating = rng.choice(CREDIT_RATINGS_BAD)
         elif i in pending_idx:
             status = "pending"
-            trust = rng.randint(45, 69)
             fico = rng.randint(600, 689)
             rating = rng.choice(CREDIT_RATINGS_MID)
         else:
             status = "verified"
-            trust = rng.randint(72, 99) if i in trust_cluster_idx else rng.randint(62, 90)
             fico = rng.randint(690, 820)
             rating = rng.choice(CREDIT_RATINGS_GOOD)
 
         companies.append({
             "id": cid, "label": name, "industry": ind, "status": status,
-            "trust": trust, "fico": fico, "rating": rating,
+            "fico": fico, "rating": rating,
             "revenue": rng.choice([2, 5, 8, 12, 20, 35, 60, 120, 250]) * 1_000_000,
             "founded": rng.randint(1972, 2019),
             "city": rng.choice(CITIES),
@@ -341,6 +347,56 @@ def main() -> None:
         if idx % 2 == 0:
             ring_principal_b["rels"].append({"type": "PRINCIPAL_OF", "target": cid})
 
+    # ── compute composite trust scores (final pass: all rels + people exist) ──
+    flagged_ids = {c["id"] for c in companies if c["status"] == "flagged"}
+    refs_received = Counter(
+        r["target"] for c in companies for r in c["rels"]
+        if r["type"] == "GAVE_REFERENCE_FOR"
+    )
+    lic_status = {lid: st for lid, _, _, _, st in LICENSES}
+    lic_status["lapsed-liquor-permit"] = "lapsed"
+    lic_status["revoked-hazmat-license"] = "revoked"
+    person_companies: dict[str, set[str]] = {}
+    company_principals: dict[str, set[str]] = {}
+    for p in people:
+        for r in p["rels"]:
+            if r["type"] == "PRINCIPAL_OF":
+                person_companies.setdefault(p["id"], set()).add(r["target"])
+                company_principals.setdefault(r["target"], set()).add(p["id"])
+
+    for c in companies:
+        cid = c["id"]
+        # 1. creditworthiness — FICO blended with credit-rating tier
+        credit = 0.6 * (c["fico"] - 300) / 550.0 + 0.4 * RATING_FACTOR.get(c["rating"], 0.5)
+        credit = max(0.0, min(1.0, credit))
+        # 2. trade references received (network trust)
+        references = min(refs_received.get(cid, 0) / 8.0, 1.0)
+        # 3. verification status
+        status_f = STATUS_FACTOR[c["status"]]
+        # 4. license validity
+        held = [r["target"] for r in c["rels"] if r["type"] == "HOLDS_LICENSE"]
+        sts = [lic_status.get(t) for t in held]
+        lic = 0.0 if "revoked" in sts else 0.4 if "lapsed" in sts else 1.0 if sts else 0.5
+        # 5. longevity
+        longevity = min((CURRENT_YEAR - c["founded"]) / 40.0, 1.0)
+        # 6. principal integrity — penalty if a principal also runs a flagged company
+        principals = company_principals.get(cid, set())
+        shares_flagged = any((person_companies.get(p, set()) & flagged_ids) - {cid} for p in principals)
+        integrity = 0.0 if shares_flagged else 1.0
+
+        parts = {
+            "credit": TRUST_WEIGHTS["credit"] * credit,
+            "references": TRUST_WEIGHTS["references"] * references,
+            "status": TRUST_WEIGHTS["status"] * status_f,
+            "license": TRUST_WEIGHTS["license"] * lic,
+            "longevity": TRUST_WEIGHTS["longevity"] * longevity,
+            "integrity": TRUST_WEIGHTS["integrity"] * integrity,
+        }
+        c["trust"] = max(0, min(100, round(sum(parts.values()))))
+        c["refs_received"] = refs_received.get(cid, 0)
+        for k, v in parts.items():
+            c[f"trust_{k}"] = round(v, 1)
+
     # ── write companies & people ─────────────────────────────────────────
     for c in companies:
         ind_label = next(l for i, l, _ in INDUSTRIES if i == c["industry"])
@@ -352,14 +408,27 @@ def main() -> None:
             f"## Trade profile\n"
             f"- Industry: {ind_label}\n"
             f"- Annual revenue: ${c['revenue']:,}\n"
-            f"- Employees: {c['employees']}\n\n"
-            f"Trade relationships are modeled as SELLS_TO / SUPPLIES edges; "
-            f"creditworthiness is asserted via RATED_BY a credit bureau."
+            f"- Employees: {c['employees']}\n"
+            f"- Trade references received: {c['refs_received']}\n\n"
+            f"## Trust score breakdown ({c['trust']}/100)\n"
+            f"- Creditworthiness: {c['trust_credit']}/30\n"
+            f"- Trade references: {c['trust_references']}/20\n"
+            f"- Verification status: {c['trust_status']}/20\n"
+            f"- License validity: {c['trust_license']}/12\n"
+            f"- Longevity: {c['trust_longevity']}/8\n"
+            f"- Principal integrity: {c['trust_integrity']}/10\n\n"
+            f"The business trust score is a weighted composite of the company's own "
+            f"data points (credit, licenses, age, verification) and its network "
+            f"signals (trade references, principal integrity)."
         )
         props = {
             "trust_score": c["trust"], "credit_rating": c["rating"], "fico": c["fico"],
             "annual_revenue_usd": c["revenue"], "founded_year": c["founded"],
             "hq_location": c["city"], "employee_count": c["employees"], "status": c["status"],
+            "references_received": c["refs_received"],
+            "trust_credit": c["trust_credit"], "trust_references": c["trust_references"],
+            "trust_status": c["trust_status"], "trust_license": c["trust_license"],
+            "trust_longevity": c["trust_longevity"], "trust_integrity": c["trust_integrity"],
         }
         summary = (f"{c['label']} — a {c['status']} {ind_label.lower()} business "
                    f"(trust {c['trust']}/100, credit {c['rating']}, FICO {c['fico']}).")

@@ -6,7 +6,7 @@ properties:
   title: CEO
   verified: true
 relationships:
-- target: cardinal-food-distributors
+- target: lumen-cement-works
   type: PRINCIPAL_OF
 summary: Naomi Frye — CEO; principal of 1 company.
 tags:

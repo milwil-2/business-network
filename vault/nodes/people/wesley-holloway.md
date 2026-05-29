@@ -6,7 +6,7 @@ properties:
   title: CEO
   verified: true
 relationships:
-- target: meridian-spirits
+- target: summit-specialty-chemical
   type: PRINCIPAL_OF
 summary: Wesley Holloway — CEO; principal of 1 company.
 tags:

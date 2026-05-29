@@ -3,50 +3,66 @@ id: meridian-building-supply
 label: Meridian Building Supply
 node_type: Company
 properties:
-  annual_revenue_usd: 12000000
-  credit_rating: CC
-  employee_count: 600
-  fico: 472
-  founded_year: 1972
-  hq_location: Tacoma, WA
-  status: flagged
-  trust_score: 18
+  annual_revenue_usd: 2000000
+  credit_rating: AAA
+  employee_count: 1100
+  fico: 803
+  founded_year: 2013
+  hq_location: Tampa, FL
+  references_received: 0
+  status: verified
+  trust_credit: 28.5
+  trust_integrity: 10.0
+  trust_license: 12.0
+  trust_longevity: 2.6
+  trust_references: 0.0
+  trust_score: 73
+  trust_status: 20.0
 relationships:
 - target: building-materials
   type: OPERATES_IN
-- target: steel-rebar
-  type: TRADES_PRODUCT
 - target: dimensional-lumber
   type: TRADES_PRODUCT
-- target: experian-business
+- target: steel-rebar
+  type: TRADES_PRODUCT
+- target: equifax-business
   type: RATED_BY
-- target: lumen-building-supply
-  type: SELLS_TO
-- target: brightwater-construction-supply
-  type: SELLS_TO
-- target: cardinal-cement-works
-  type: SELLS_TO
-- target: stonebridge-construction-supply
-  type: SUPPLIES
-- target: trident-building-supply
-  type: SUPPLIES
-- target: brightwater-construction-supply
-  type: COMPETES_WITH
-- target: brightwater-foods
-  type: SELLS_TO
-- target: lapsed-liquor-permit
+- target: motor-carrier-authority
   type: HOLDS_LICENSE
-summary: Meridian Building Supply — a flagged building materials business (trust 18/100,
-  credit CC, FICO 472).
+- target: stonebridge-construction-supply
+  type: SELLS_TO
+- target: lumen-cement-works
+  type: SELLS_TO
+- target: evergreen-cement-works
+  type: SELLS_TO
+- target: evergreen-cement-works
+  type: SUPPLIES
+- target: falcon-lumber-co
+  type: SUPPLIES
+- target: crescent-chemical-works
+  type: GAVE_REFERENCE_FOR
+- target: lumen-foods
+  type: SUBSIDIARY_OF
+summary: Meridian Building Supply — a verified building materials business (trust
+  73/100, credit AAA, FICO 803).
 tags:
 - Company
 ---
 
-**Meridian Building Supply** is a flagged business in the [[building-materials]] sector, headquartered in Tacoma, WA and founded in 1972. Trust score **18/100**, credit rating **CC**, FICO **472**. This profile is **flagged** pending review.
+**Meridian Building Supply** is a verified business in the [[building-materials]] sector, headquartered in Tampa, FL and founded in 2013. Trust score **73/100**, credit rating **AAA**, FICO **803**.
 
 ## Trade profile
 - Industry: Building Materials
-- Annual revenue: $12,000,000
-- Employees: 600
+- Annual revenue: $2,000,000
+- Employees: 1100
+- Trade references received: 0
 
-Trade relationships are modeled as SELLS_TO / SUPPLIES edges; creditworthiness is asserted via RATED_BY a credit bureau.
+## Trust score breakdown (73/100)
+- Creditworthiness: 28.5/30
+- Trade references: 0.0/20
+- Verification status: 20.0/20
+- License validity: 12.0/12
+- Longevity: 2.6/8
+- Principal integrity: 10.0/10
+
+The business trust score is a weighted composite of the company's own data points (credit, licenses, age, verification) and its network signals (trade references, principal integrity).

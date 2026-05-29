@@ -6,7 +6,7 @@ properties:
   title: CFO
   verified: true
 relationships:
-- target: cardinal-culinary-supply
+- target: lumen-spirits
   type: PRINCIPAL_OF
 summary: Salim Holloway — CFO; principal of 1 company.
 tags:

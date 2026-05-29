@@ -4,9 +4,9 @@ label: Naomi Delgado
 node_type: Person
 properties:
   title: Owner
-  verified: false
+  verified: true
 relationships:
-- target: atlas-industries
+- target: stonebridge-transport
   type: PRINCIPAL_OF
 summary: Naomi Delgado — Owner; principal of 1 company.
 tags:

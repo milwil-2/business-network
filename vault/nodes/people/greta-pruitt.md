@@ -6,7 +6,7 @@ properties:
   title: CEO
   verified: true
 relationships:
-- target: cardinal-wine-imports
+- target: pioneer-culinary-supply
   type: PRINCIPAL_OF
 summary: Greta Pruitt — CEO; principal of 1 company.
 tags:

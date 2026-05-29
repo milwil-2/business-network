@@ -6,7 +6,7 @@ properties:
   title: CFO
   verified: true
 relationships:
-- target: granite-materials
+- target: meridian-freight
   type: PRINCIPAL_OF
 summary: Evelyn Vance — CFO; principal of 1 company.
 tags:

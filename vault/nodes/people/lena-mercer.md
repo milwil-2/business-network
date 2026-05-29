@@ -6,7 +6,7 @@ properties:
   title: President
   verified: true
 relationships:
-- target: tideline-culinary-supply
+- target: ironclad-cement-works
   type: PRINCIPAL_OF
 summary: Lena Mercer — President; principal of 1 company.
 tags:

@@ -6,7 +6,7 @@ properties:
   title: Owner
   verified: true
 relationships:
-- target: crescent-building-supply
+- target: trident-cold-chain
   type: PRINCIPAL_OF
 summary: Drew Mercer — Owner; principal of 1 company.
 tags:

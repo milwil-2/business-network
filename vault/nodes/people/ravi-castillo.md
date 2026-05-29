@@ -6,7 +6,7 @@ properties:
   title: Owner
   verified: true
 relationships:
-- target: crescent-beverage-co
+- target: cascade-chemical-works
   type: PRINCIPAL_OF
 summary: Ravi Castillo — Owner; principal of 1 company.
 tags:

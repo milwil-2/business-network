@@ -4,9 +4,9 @@ label: Ravi Frye
 node_type: Person
 properties:
   title: Owner
-  verified: false
+  verified: true
 relationships:
-- target: anchor-specialty-chemical
+- target: keystone-brewing
   type: PRINCIPAL_OF
 summary: Ravi Frye — Owner; principal of 1 company.
 tags:

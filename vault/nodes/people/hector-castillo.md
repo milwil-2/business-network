@@ -4,9 +4,9 @@ label: Hector Castillo
 node_type: Person
 properties:
   title: Owner
-  verified: true
+  verified: false
 relationships:
-- target: brightwater-distribution
+- target: evergreen-cement-works
   type: PRINCIPAL_OF
 summary: Hector Castillo — Owner; principal of 1 company.
 tags:

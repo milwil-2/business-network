@@ -4,9 +4,9 @@ label: Salim Hartman
 node_type: Person
 properties:
   title: CEO
-  verified: true
+  verified: false
 relationships:
-- target: quartz-transport
+- target: vertex-polymers
   type: PRINCIPAL_OF
 summary: Salim Hartman — CEO; principal of 1 company.
 tags:

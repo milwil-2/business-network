@@ -6,7 +6,7 @@ properties:
   title: President
   verified: true
 relationships:
-- target: redwood-freight
+- target: anchor-industries
   type: PRINCIPAL_OF
 summary: Hector Esposito — President; principal of 1 company.
 tags:

@@ -6,49 +6,69 @@ properties:
   annual_revenue_usd: 250000000
   credit_rating: AAA
   employee_count: 600
-  fico: 819
+  fico: 749
   founded_year: 1984
   hq_location: Memphis, TN
+  references_received: 5
   status: verified
-  trust_score: 79
+  trust_credit: 26.7
+  trust_integrity: 10.0
+  trust_license: 12.0
+  trust_longevity: 8.0
+  trust_references: 12.5
+  trust_score: 89
+  trust_status: 20.0
 relationships:
 - target: alcohol-beverage
   type: OPERATES_IN
-- target: sparkling-wine
-  type: TRADES_PRODUCT
 - target: craft-lager
   type: TRADES_PRODUCT
-- target: equifax-business
+- target: dun-bradstreet
   type: RATED_BY
-- target: food-handler-permit
+- target: hazmat-handling-license
   type: HOLDS_LICENSE
-- target: contractor-license
-  type: HOLDS_LICENSE
-- target: crescent-beverage-co
+- target: beacon-beverage-co
   type: SELLS_TO
-- target: summit-beverage-co
+- target: granite-distributing
+  type: SELLS_TO
+- target: lumen-beverage-co
   type: SUPPLIES
-- target: cardinal-cement-works
+- target: summit-distributing
+  type: SUPPLIES
+- target: stonebridge-construction-supply
   type: GAVE_REFERENCE_FOR
-- target: quartz-transport
-  type: GAVE_REFERENCE_FOR
-- target: quartz-transport
+- target: crescent-chemical-works
   type: PARTNERS_WITH
-- target: falcon-wholesale-grocers
-  type: PARTNERS_WITH
-- target: crescent-building-supply
+- target: brightwater-materials
   type: GAVE_REFERENCE_FOR
-summary: Summit Brewing — a verified alcohol & beverage business (trust 79/100, credit
-  AAA, FICO 819).
+- target: ironclad-spirits
+  type: GAVE_REFERENCE_FOR
+- target: cobalt-freight
+  type: GAVE_REFERENCE_FOR
+- target: pioneer-culinary-supply
+  type: GAVE_REFERENCE_FOR
+- target: pioneer-culinary-supply
+  type: PARTNERS_WITH
+summary: Summit Brewing — a verified alcohol & beverage business (trust 89/100, credit
+  AAA, FICO 749).
 tags:
 - Company
 ---
 
-**Summit Brewing** is a verified business in the [[alcohol-beverage]] sector, headquartered in Memphis, TN and founded in 1984. Trust score **79/100**, credit rating **AAA**, FICO **819**.
+**Summit Brewing** is a verified business in the [[alcohol-beverage]] sector, headquartered in Memphis, TN and founded in 1984. Trust score **89/100**, credit rating **AAA**, FICO **749**.
 
 ## Trade profile
 - Industry: Alcohol & Beverage
 - Annual revenue: $250,000,000
 - Employees: 600
+- Trade references received: 5
 
-Trade relationships are modeled as SELLS_TO / SUPPLIES edges; creditworthiness is asserted via RATED_BY a credit bureau.
+## Trust score breakdown (89/100)
+- Creditworthiness: 26.7/30
+- Trade references: 12.5/20
+- Verification status: 20.0/20
+- License validity: 12.0/12
+- Longevity: 8.0/8
+- Principal integrity: 10.0/10
+
+The business trust score is a weighted composite of the company's own data points (credit, licenses, age, verification) and its network signals (trade references, principal integrity).

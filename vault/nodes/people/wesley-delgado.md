@@ -6,7 +6,7 @@ properties:
   title: CEO
   verified: true
 relationships:
-- target: trident-polymers
+- target: northgate-brewing
   type: PRINCIPAL_OF
 summary: Wesley Delgado — CEO; principal of 1 company.
 tags:

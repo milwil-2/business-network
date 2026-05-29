@@ -6,7 +6,7 @@ properties:
   title: President
   verified: true
 relationships:
-- target: stonebridge-spirits
+- target: harbor-wholesale-grocers
   type: PRINCIPAL_OF
 summary: Desmond Ramos — President; principal of 1 company.
 tags:

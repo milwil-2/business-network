@@ -4,9 +4,9 @@ label: Yusuf Vance
 node_type: Person
 properties:
   title: CFO
-  verified: true
+  verified: false
 relationships:
-- target: copperline-logistics
+- target: meridian-foods
   type: PRINCIPAL_OF
 summary: Yusuf Vance — CFO; principal of 1 company.
 tags:

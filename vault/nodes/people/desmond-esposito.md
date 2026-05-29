@@ -4,9 +4,9 @@ label: Desmond Esposito
 node_type: Person
 properties:
   title: CFO
-  verified: false
+  verified: true
 relationships:
-- target: quartz-industries
+- target: summit-freight
   type: PRINCIPAL_OF
 summary: Desmond Esposito — CFO; principal of 1 company.
 tags:
