@@ -18,6 +18,8 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 # neo4j+s:// connection to Aura verifies. Harmless on Linux/Vercel.
 os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 
+PRIMARY_TYPES = ["Company", "Person", "Industry", "Product", "License", "CreditBureau"]
+
 _driver = None
 
 
@@ -44,8 +46,10 @@ def get_node(node_id: str) -> dict | None:
     """Fetch a single node by id, or None if it doesn't exist."""
     with get_driver().session() as s:
         record = s.run(
-            "MATCH (n {id:$id}) RETURN n, labels(n)[0] AS type",
+            "MATCH (n {id:$id}) RETURN n, [l IN labels(n) WHERE l IN $primary][0] AS type, "
+            "[l IN labels(n) WHERE NOT l IN $primary] AS roles",
             id=node_id,
+            primary=PRIMARY_TYPES,
         ).single()
     if record is None:
         return None
@@ -55,6 +59,7 @@ def get_node(node_id: str) -> dict | None:
         "id": props.get("id"),
         "label": props.get("label"),
         "type": record["type"],
+        "roles": record["roles"],
         "summary": props.get("summary"),
         "properties": props,
     }
@@ -69,9 +74,10 @@ def get_neighbors(node_id: str) -> list[dict]:
             RETURN type(r) AS rel,
                    m.id AS target_id,
                    m.label AS target_label,
-                   labels(m)[0] AS target_type
+                   [l IN labels(m) WHERE l IN $primary][0] AS target_type
             """,
             id=node_id,
+            primary=PRIMARY_TYPES,
         )
         return [dict(r) for r in records]
 
@@ -81,7 +87,8 @@ def get_graph() -> dict:
     with get_driver().session() as s:
         node_records = s.run(
             "MATCH (n) RETURN n.id AS id, n.label AS label, "
-            "labels(n)[0] AS group, n.summary AS title"
+            "[l IN labels(n) WHERE l IN $primary][0] AS group, n.summary AS title",
+            primary=PRIMARY_TYPES,
         )
         nodes = [dict(r) for r in node_records]
         edge_records = s.run(
@@ -119,10 +126,11 @@ def search_nodes(query: str) -> list[dict]:
             WHERE toLower(n.label) CONTAINS toLower($q)
                OR toLower(n.summary) CONTAINS toLower($q)
             RETURN n.id AS id, n.label AS label,
-                   labels(n)[0] AS type, n.summary AS summary
+                   [l IN labels(n) WHERE l IN $primary][0] AS type, n.summary AS summary
             LIMIT 25
             """,
             q=query,
+            primary=PRIMARY_TYPES,
         )
         return [dict(r) for r in records]
 
@@ -132,6 +140,7 @@ def all_node_summaries() -> list[dict]:
     with get_driver().session() as s:
         records = s.run(
             "MATCH (n) RETURN n.id AS id, n.label AS label, "
-            "labels(n)[0] AS type, n.summary AS summary"
+            "[l IN labels(n) WHERE l IN $primary][0] AS type, n.summary AS summary",
+            primary=PRIMARY_TYPES,
         )
         return [dict(r) for r in records]

@@ -113,3 +113,12 @@ RETURN vendor.label AS risky_vendor,
        length(path) AS hops
 ORDER BY vendor_fico ASC
 LIMIT 10;
+
+
+// ─── Q9: Multi-label trade roles ─────────────────────────────────
+// Companies that are BOTH buyer and vendor (multi-label role labels)
+// Talking point: a node can carry many secondary labels at once —
+// each business stays ONE node while role queries like (:Buyer:Vendor)
+// match on first-class labels derived from its trade edges.
+
+MATCH (c:Buyer:Vendor) RETURN c.label, c.trust_score ORDER BY c.trust_score DESC LIMIT 10;

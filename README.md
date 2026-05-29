@@ -5,6 +5,8 @@ A graph of a **B2B trade & trust network** (modeled on platforms like Nuvo): ver
 **Node types:** `Company`, `Person`, `Industry`, `Product`, `License`, `CreditBureau`.
 **Relationship types:** `SELLS_TO`, `SUPPLIES`, `OPERATES_IN`, `TRADES_PRODUCT`, `HOLDS_LICENSE`, `RATED_BY`, `PRINCIPAL_OF`, `GAVE_REFERENCE_FOR`, `SUBSIDIARY_OF`, `PARTNERS_WITH`, `COMPETES_WITH`, `INVITED`.
 
+Each `Company` also carries first-class **trade-role labels** (`Buyer`/`Seller`/`Vendor`/`Customer`) as *secondary* Neo4j labels derived from its trade edges during sync — so `MATCH (b:Buyer)` works directly while each business remains a single node (the same node just holds extra labels alongside its primary `:Company` label).
+
 The dataset (~130 nodes) is **mock / generated** data (real company data will be added in the future), produced by a seeded script — `uv run scripts/generate_b2b_vault.py` — which writes the Obsidian vault and embeds deliberate, query-able patterns: trust clusters, a fraud ring (companies sharing principals), supply chains, and trust hubs.
 
 ## Architecture

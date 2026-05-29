@@ -82,6 +82,11 @@ def sync(
                 console.print(f"  [yellow]SKIP[/]  ({node.id})-[:{rel['type']}]->({rel['target']}) — target not found")
                 skipped += 1
 
+    # Pass 3: derive trade-role labels (Buyer/Seller/Vendor/Customer) from edges
+    console.print("\n[bold]Pass 3: Trade-role labels[/]")
+    role_counts = client.apply_role_labels()
+    console.print("  " + ", ".join(f"[magenta]{r}[/] {n}" for r, n in role_counts.items()))
+
     client.close()
 
     new_state = mark_synced(changed, state)

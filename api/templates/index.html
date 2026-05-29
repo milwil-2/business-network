@@ -149,6 +149,19 @@
     }
     .cypher pre:last-child { margin-bottom: 0; }
     .cypher .q { color: var(--muted); display: block; margin-bottom: 3px; }
+    .nodecard .roles { display: flex; flex-wrap: wrap; gap: 6px; margin: -6px 0 12px; }
+    .role-badge {
+      display: inline-block;
+      background: rgba(86,182,194,0.12);
+      color: #56b6c2;
+      border: 1px solid rgba(86,182,194,0.45);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.35;
+      margin: 0 2px 2px 0;
+    }
     .nodecard.empty { color: var(--muted); font-size: 12.5px; }
     .nodecard .name { font-size: 15px; font-weight: 700; color: var(--text); }
     .nodecard .meta { color: var(--muted); font-size: 12px; margin: 2px 0 12px; }
@@ -172,6 +185,9 @@
           buyer / seller / vendor with a <b>calculated trust score</b> derived from its own
           data (credit, licenses, age, verification) and its network signals (trade
           references, shared principals). Click any company to see how its score is built.
+          Every company also carries first-class <b>trade-role labels</b> &mdash;
+          Buyer / Seller / Vendor / Customer &mdash; derived from its trade edges, so
+          queries like <b>MATCH (b:Buyer)</b> work while each business stays a single node.
           <br /><br />
           <b>Note:</b> all data shown is <b>mock / generated</b> for demonstration &mdash;
           real company data will be added in the future.
@@ -243,6 +259,9 @@ ORDER BY refs DESC LIMIT 10;</pre>
           <pre><span class="q">// Trust path between two companies</span>
 MATCH (a:Company {id:'...'}), (b:Company {id:'...'}),
       p = shortestPath((a)-[*..6]-(b)) RETURN p;</pre>
+          <pre><span class="q">// Most-trusted vendors</span>
+MATCH (v:Vendor) RETURN v.label, v.trust_score
+ORDER BY v.trust_score DESC LIMIT 10;</pre>
         </div>
       </div>
     </aside>
@@ -337,6 +356,17 @@ MATCH (a:Company {id:'...'}), (b:Company {id:'...'}),
         meta.className = 'meta';
         meta.textContent = [n.type, p.status, p.hq_location].filter(Boolean).join(' · ');
         el.appendChild(meta);
+        if (Array.isArray(n.roles) && n.roles.length) {
+          const roles = document.createElement('div');
+          roles.className = 'roles';
+          n.roles.forEach(role => {
+            const badge = document.createElement('span');
+            badge.className = 'role-badge';
+            badge.textContent = role;
+            roles.appendChild(badge);
+          });
+          el.appendChild(roles);
+        }
         if (n.type === 'Company' && p.trust_score != null) {
           const total = document.createElement('div');
           const big = document.createElement('span');

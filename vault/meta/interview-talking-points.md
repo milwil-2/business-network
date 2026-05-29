@@ -44,6 +44,8 @@ Example node + edge:
 (:Person {id:'dana-whitfield'})-[:PRINCIPAL_OF]->(:Company {id:'acme-foods'})
 ```
 
+**Multi-label modeling decision (trade roles).** A company's *role* (buyer, seller, vendor, customer) is a property of its trade edges, not a separate identity — so I modeled roles as **secondary labels on the same `:Company` node** (derived from edges during sync), not as separate nodes. That keeps one business = one node, so identity, trust-score, and fraud (shared-principal) queries stay intact, while Cypher still gets first-class role filters for free: `MATCH (b:Buyer)` works, and `MATCH (c:Buyer:Vendor)` finds businesses that are *both* a buyer and a vendor. The tradeoff to call out: because nodes are now multi-label, the API resolves the primary type via a `PRIMARY_TYPES` filter rather than `labels[0]`.
+
 ---
 
 ## How the trust score is computed
