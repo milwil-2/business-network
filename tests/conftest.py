@@ -15,11 +15,11 @@ VALID_NODES = {
         ---
         id: test-node
         label: Test Node
-        node_type: Concept
-        tags: [test, Concept]
+        node_type: Company
+        tags: [test, Company]
         summary: "A test node."
         relationships:
-          - type: RELATED_TO
+          - type: SELLS_TO
             target: other-node
         ---
         Body with a [[wikilink]] reference and a link to [[other-node]].
@@ -30,8 +30,8 @@ VALID_NODES = {
         ---
         id: other-node
         label: Other Node
-        node_type: Technology
-        tags: [test, Technology]
+        node_type: Person
+        tags: [test, Person]
         summary: "Another test node."
         ---
         A node with no explicit relationships but a [[test-node]] mention.
@@ -42,10 +42,10 @@ VALID_NODES = {
         ---
         id: third-node
         label: Third Node
-        node_type: Algorithm
+        node_type: Industry
         summary: "A third node."
         relationships:
-          - type: USED_IN
+          - type: SUPPLIES
             target: test-node
         ---
         Plain body, no wikilinks here.

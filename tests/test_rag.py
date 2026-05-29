@@ -16,9 +16,9 @@ def test_retrieve_context_hybrid(monkeypatch):
         "semantic_search",
         lambda query, k=6: [
             {
-                "id": "dijkstra",
-                "label": "Dijkstra's Algorithm",
-                "type": "Algorithm",
+                "id": "acme-foods",
+                "label": "Acme Foods",
+                "type": "Company",
                 "score": 0.9,
             }
         ],
@@ -27,10 +27,10 @@ def test_retrieve_context_hybrid(monkeypatch):
         rag.db,
         "get_node",
         lambda node_id: {
-            "id": "dijkstra",
-            "label": "Dijkstra's Algorithm",
-            "type": "Algorithm",
-            "summary": "Single-source shortest path in weighted graphs.",
+            "id": "acme-foods",
+            "label": "Acme Foods",
+            "type": "Company",
+            "summary": "A verified food-service distributor.",
             "properties": {},
         },
     )
@@ -39,19 +39,19 @@ def test_retrieve_context_hybrid(monkeypatch):
         "get_neighbors",
         lambda node_id: [
             {
-                "rel": "USES",
-                "target_id": "priority-queue",
-                "target_label": "Priority Queue",
-                "target_type": "DataStructure",
+                "rel": "SELLS_TO",
+                "target_id": "globex-trading",
+                "target_label": "Globex Trading",
+                "target_type": "Company",
             }
         ],
     )
 
-    context, mode = rag._retrieve_context("shortest path")
+    context, mode = rag._retrieve_context("food distributor")
 
     assert mode == "hybrid"
-    assert "Dijkstra" in context
-    assert "Priority Queue" in context
+    assert "Acme Foods" in context
+    assert "Globex Trading" in context
 
 
 def test_retrieve_context_fallback(monkeypatch):
@@ -66,15 +66,15 @@ def test_retrieve_context_fallback(monkeypatch):
         "all_node_summaries",
         lambda: [
             {
-                "id": "redis",
-                "label": "Redis Cache",
-                "type": "Technology",
-                "summary": "In-memory key-value store.",
+                "id": "globex-trading",
+                "label": "Globex Trading",
+                "type": "Company",
+                "summary": "A wholesale trading company.",
             }
         ],
     )
 
-    context, mode = rag._retrieve_context("how do caches work")
+    context, mode = rag._retrieve_context("which companies trade wholesale")
 
     assert mode == "graph-only"
-    assert "Redis Cache" in context
+    assert "Globex Trading" in context

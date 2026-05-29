@@ -28,21 +28,20 @@ from . import db
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 # --- closed vocabulary -----------------------------------------------------
-VALID_NODE_TYPES = {"Concept", "Technology", "Algorithm", "Pattern", "Course"}
+VALID_NODE_TYPES = {"Company", "Person", "Industry", "Product", "License", "CreditBureau"}
 VALID_REL_TYPES = {
-    "IMPLEMENTS",
-    "USES_QUERY_LANGUAGE",
-    "EXTENDS",
-    "IS_VARIANT_OF",
-    "ENABLES",
-    "OPTIMIZED_FOR",
-    "USED_IN",
-    "RELATED_TO",
-    "STORES_AS",
+    "SELLS_TO",
+    "SUPPLIES",
+    "OPERATES_IN",
+    "TRADES_PRODUCT",
+    "HOLDS_LICENSE",
+    "RATED_BY",
+    "PRINCIPAL_OF",
+    "GAVE_REFERENCE_FOR",
+    "SUBSIDIARY_OF",
+    "PARTNERS_WITH",
     "COMPETES_WITH",
-    "INSPIRED_BY",
-    "PREREQUISITE_OF",
-    "COVERS",
+    "INVITED",
 }
 
 # --- limits & rate limiting ------------------------------------------------
@@ -101,7 +100,9 @@ class ExtractionResult(BaseModel):
 
 
 _SYSTEM_PROMPT = (
-    "You extract a software-engineering knowledge graph from the provided text. "
+    "You extract a B2B trade & trust network graph from the provided text — "
+    "companies, the people who run them, the products and industries they trade "
+    "in, their licenses, and their creditworthiness/trust signals. "
     "Each node must use one of these node_type values: "
     + ", ".join(sorted(VALID_NODE_TYPES))
     + ". Each relationship must use one of these type values: "

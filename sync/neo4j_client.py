@@ -8,11 +8,11 @@ os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 
 from parser import ParsedNode
 
-VALID_NODE_TYPES = {"Concept", "Technology", "Algorithm", "Pattern", "Course"}
+VALID_NODE_TYPES = {"Company", "Person", "Industry", "Product", "License", "CreditBureau"}
 VALID_REL_TYPES = {
-    "IMPLEMENTS", "USES_QUERY_LANGUAGE", "EXTENDS", "IS_VARIANT_OF",
-    "ENABLES", "OPTIMIZED_FOR", "USED_IN", "RELATED_TO", "STORES_AS",
-    "COMPETES_WITH", "INSPIRED_BY", "PREREQUISITE_OF", "COVERS",
+    "SELLS_TO", "SUPPLIES", "OPERATES_IN", "TRADES_PRODUCT",
+    "HOLDS_LICENSE", "RATED_BY", "PRINCIPAL_OF", "GAVE_REFERENCE_FOR",
+    "SUBSIDIARY_OF", "PARTNERS_WITH", "COMPETES_WITH", "INVITED",
 }
 
 

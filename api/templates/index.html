@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Knowledge Graph</title>
+  <title>B2B Trade Network</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <style>
     :root {
@@ -13,11 +13,12 @@
       --text: #e6edf3;
       --muted: #8b98a5;
       --accent: #58a6ff;
-      --concept: #f2c14e;
-      --technology: #4ea1f2;
-      --algorithm: #e06c75;
-      --pattern: #98c379;
-      --course: #c678dd;
+      --company: #4ea1f2;
+      --person: #f2c14e;
+      --industry: #98c379;
+      --product: #c678dd;
+      --license: #e06c75;
+      --bureau: #56b6c2;
     }
     * { box-sizing: border-box; }
     body {
@@ -125,7 +126,7 @@
 </head>
 <body>
   <header>
-    <h1>Knowledge Graph</h1>
+    <h1>B2B Trade Network</h1>
     <span class="counts" id="counts">loading&hellip;</span>
   </header>
   <div class="main">
@@ -134,11 +135,12 @@
       <div class="section">
         <h2>Legend</h2>
         <div class="legend">
-          <span class="item"><span class="swatch" style="background:var(--concept)"></span>Concept</span>
-          <span class="item"><span class="swatch" style="background:var(--technology)"></span>Technology</span>
-          <span class="item"><span class="swatch" style="background:var(--algorithm)"></span>Algorithm</span>
-          <span class="item"><span class="swatch" style="background:var(--pattern)"></span>Pattern</span>
-          <span class="item"><span class="swatch" style="background:var(--course)"></span>Course</span>
+          <span class="item"><span class="swatch" style="background:var(--company)"></span>Company</span>
+          <span class="item"><span class="swatch" style="background:var(--person)"></span>Person</span>
+          <span class="item"><span class="swatch" style="background:var(--industry)"></span>Industry</span>
+          <span class="item"><span class="swatch" style="background:var(--product)"></span>Product</span>
+          <span class="item"><span class="swatch" style="background:var(--license)"></span>License</span>
+          <span class="item"><span class="swatch" style="background:var(--bureau)"></span>CreditBureau</span>
         </div>
       </div>
       <div class="section">
@@ -157,11 +159,12 @@
 
   <script>
     const COLORS = {
-      Concept: getCSS('--concept'),
-      Technology: getCSS('--technology'),
-      Algorithm: getCSS('--algorithm'),
-      Pattern: getCSS('--pattern'),
-      Course: getCSS('--course'),
+      Company: getCSS('--company'),
+      Person: getCSS('--person'),
+      Industry: getCSS('--industry'),
+      Product: getCSS('--product'),
+      License: getCSS('--license'),
+      CreditBureau: getCSS('--bureau'),
     };
     function getCSS(v) {
       return getComputedStyle(document.documentElement).getPropertyValue(v).trim();
