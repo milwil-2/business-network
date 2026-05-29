@@ -1,105 +1,115 @@
 // ═══════════════════════════════════════════════════════════════════
-// INTERVIEW DEMO QUERIES — Knowledge Graph
-// Run in Neo4j Browser at localhost:7474
+// INTERVIEW DEMO QUERIES — B2B Trade & Trust Network
+// Run in Neo4j Browser at localhost:7474 (or the Aura query editor)
 // For Q7: switch to "Graph" tab to see the visual graph
 // ═══════════════════════════════════════════════════════════════════
 
 
 // ─── Q1: Basic node lookup ───────────────────────────────────────
-// "Show me everything about Neo4j."
-// Talking point: nodes store properties, just like rows — but the
-// relationships are first-class citizens, not foreign keys.
+// "Show me everything about this company, including its trust signals."
+// Talking point: nodes store properties (trust_score, fico, credit_rating)
+// just like rows — but relationships are first-class, not foreign keys.
 
-MATCH (t:Technology {id: 'neo4j'})
-RETURN t;
+MATCH (c:Company)
+RETURN c
+ORDER BY c.trust_score DESC
+LIMIT 1;
 
 
 // ─── Q2: One-hop traversal ───────────────────────────────────────
-// "What does Neo4j directly relate to, and how?"
-// Talking point: relationship traversal vs JOIN — no index lookup
-// needed, the edge IS the pointer.
+// "Who does this company trade with, and how?"
+// Talking point: relationship traversal vs JOIN — the edge IS the
+// pointer, no index lookup needed.
 
-MATCH (t:Technology {id: 'neo4j'})-[r]->(neighbor)
-RETURN t.label           AS source,
+MATCH (c:Company)-[r]->(neighbor)
+WITH c, r, neighbor ORDER BY c.trust_score DESC LIMIT 1
+RETURN c.label           AS source,
        type(r)           AS relationship,
        neighbor.label    AS target,
-       labels(neighbor)  AS target_type
-ORDER BY target_type;
+       labels(neighbor)  AS target_type;
 
 
-// ─── Q3: Variable-depth traversal ────────────────────────────────
-// "What is graph-theory connected to, up to 3 hops away?"
-// Talking point: [*1..3] syntax — O(hops), not O(rows). Try this
-// in a relational DB without a recursive CTE.
+// ─── Q3: Vendor recommendation (2-hop) ───────────────────────────
+// "Which vendors supply the buyers that a given company already sells to?"
+// Talking point: [*2] multi-hop in one declarative pattern — the core
+// 'network effect' query a B2B platform like Nuvo runs constantly.
 
-MATCH path = (c:Concept {id: 'graph-theory'})-[*1..3]->(connected)
-RETURN DISTINCT connected.label    AS node,
-               labels(connected)   AS type,
-               length(path)        AS hops
-ORDER BY hops, type;
+MATCH (me:Company)-[:SELLS_TO]->(buyer:Company)<-[:SUPPLIES]-(vendor:Company)
+WHERE me.status = 'verified'
+RETURN me.label      AS company,
+       buyer.label   AS shared_buyer,
+       vendor.label  AS suggested_vendor,
+       vendor.trust_score AS vendor_trust
+ORDER BY vendor_trust DESC
+LIMIT 15;
 
 
-// ─── Q4: Shortest path ───────────────────────────────────────────
-// "What's the shortest connection between BFS and Neo4j?"
-// Talking point: shortestPath() is a built-in graph primitive.
-// SQL equivalent: recursive CTE + row-number window — multiple pages.
+// ─── Q4: Trust path (shortest path) ──────────────────────────────
+// "How is company A connected to company B through the trade network?"
+// Talking point: shortestPath() is a built-in graph primitive. SQL
+// equivalent: recursive CTE + window function — multiple pages.
 
-MATCH
-  (start:Algorithm {id: 'bfs'}),
-  (end:Technology  {id: 'neo4j'}),
-  path = shortestPath((start)-[*..6]-(end))
+MATCH (a:Company), (b:Company)
+WHERE a.id <> b.id
+WITH a, b LIMIT 1
+MATCH path = shortestPath((a)-[*..6]-(b))
 RETURN [n IN nodes(path)         | n.label]  AS path_labels,
        [r IN relationships(path) | type(r)]  AS rel_types,
        length(path)                          AS hops;
 
 
-// ─── Q5: Pattern matching ────────────────────────────────────────
-// "Find algorithms and technologies that share a common concept."
-// Talking point: declarative pattern matching — the shape of the
-// query mirrors the shape of the data you're looking for.
+// ─── Q5: FRAUD RING — shared principals across flagged companies ──
+// "Find people who are principals of more than one FLAGGED company."
+// Talking point: graph-native fraud detection. The shared-principal
+// pattern is trivial in Cypher and painful in SQL.
 
-MATCH (algo:Algorithm)-[:IMPLEMENTS]->(concept:Concept)<-[:IMPLEMENTS]-(tech:Technology)
-RETURN algo.label     AS algorithm,
-       concept.label  AS shared_concept,
-       tech.label     AS technology
-ORDER BY concept.label;
+MATCH (p:Person)-[:PRINCIPAL_OF]->(c:Company)
+WHERE c.status = 'flagged'
+WITH p, collect(c.label) AS flagged_companies, count(c) AS n
+WHERE n > 1
+RETURN p.label AS principal, n AS flagged_count, flagged_companies
+ORDER BY n DESC;
 
 
-// ─── Q6: Aggregation + degree centrality ─────────────────────────
-// "Which concepts are most central — implemented by the most nodes?"
-// Talking point: degree centrality; leads naturally into PageRank
-// as a recursive, graph-native improvement.
+// ─── Q6: Trust hubs (degree centrality) ──────────────────────────
+// "Which companies are most-referenced — the trust hubs of the network?"
+// Talking point: degree centrality on GAVE_REFERENCE_FOR; leads
+// naturally into PageRank as a recursive, graph-native improvement.
 
-MATCH (n)-[:IMPLEMENTS]->(concept)
-RETURN concept.label         AS concept,
-       count(n)               AS degree,
-       collect(n.label)       AS implemented_by
-ORDER BY degree DESC
+MATCH (ref:Company)-[:GAVE_REFERENCE_FOR]->(c:Company)
+RETURN c.label              AS company,
+       c.trust_score        AS trust_score,
+       count(ref)           AS references_received,
+       collect(ref.label)   AS referrers
+ORDER BY references_received DESC
 LIMIT 10;
 
 
-// ─── Q7: Subgraph extraction (VISUAL DEMO) ───────────────────────
-// "Show the full algorithm ecosystem."
+// ─── Q7: Industry subgraph (VISUAL DEMO) ─────────────────────────
+// "Show the full trade graph for one industry."
 // Talking point: subgraph queries are natural — no UNION, no temp
 // tables. SWITCH TO GRAPH TAB IN NEO4J BROWSER for the visual.
 
-MATCH (algo:Algorithm)-[r]->(related)
-WHERE labels(related)[0] IN ['Concept', 'Pattern']
-RETURN algo, r, related;
+MATCH (c:Company)-[:OPERATES_IN]->(i:Industry)
+WITH i LIMIT 1
+MATCH (c:Company)-[:OPERATES_IN]->(i)
+MATCH (c)-[r]->(related)
+RETURN c, r, related, i;
 
 
-// ─── Q8: allShortestPaths with path predicate ────────────────────
-// "All shortest paths from Dijkstra to event-sourcing, skipping
-// any Technology nodes along the way."
-// Talking point: NONE() path predicate — shows Cypher expressiveness
-// for constrained traversal that would require multiple CTEs in SQL.
+// ─── Q8: Credit risk in the supply chain (path predicate) ────────
+// "Find supply chains where a low-credit vendor supplies a verified buyer,
+//  without passing through any flagged company along the way."
+// Talking point: NONE() path predicate — constrained traversal that
+// would require multiple CTEs in SQL.
 
-MATCH
-  (start:Algorithm {id: 'dijkstra'}),
-  (end:Pattern     {id: 'event-sourcing'}),
-  path = shortestPath((start)-[*..8]-(end))
-WHERE NONE(n IN nodes(path) WHERE n:Technology)
-RETURN [n IN nodes(path) | n.label]  AS path,
-       length(path)                  AS length
-ORDER BY length
-LIMIT 5;
+MATCH (vendor:Company)-[:SUPPLIES*1..3]->(buyer:Company)
+WHERE vendor.fico < 600 AND buyer.status = 'verified'
+WITH vendor, buyer, shortestPath((vendor)-[:SUPPLIES*1..3]->(buyer)) AS path
+WHERE NONE(n IN nodes(path) WHERE n.status = 'flagged')
+RETURN vendor.label AS risky_vendor,
+       vendor.fico  AS vendor_fico,
+       buyer.label  AS verified_buyer,
+       length(path) AS hops
+ORDER BY vendor_fico ASC
+LIMIT 10;

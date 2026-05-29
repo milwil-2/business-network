@@ -25,8 +25,8 @@ def test_parse_valid_node(temp_node_file):
     assert isinstance(node, parser.ParsedNode)
     assert node.id == "test-node"
     assert node.label == "Test Node"
-    assert node.node_type == "Concept"
-    assert node.tags == ["test", "Concept"]
+    assert node.node_type == "Company"
+    assert node.tags == ["test", "Company"]
     assert node.summary == "A test node."
     assert node.source_path == temp_node_file
     assert isinstance(node.mtime, float)
@@ -34,7 +34,7 @@ def test_parse_valid_node(temp_node_file):
 
 def test_parse_relationships_are_dicts(temp_node_file):
     node = parser.parse_node_file(temp_node_file)
-    assert node.relationships == [{"type": "RELATED_TO", "target": "other-node"}]
+    assert node.relationships == [{"type": "SELLS_TO", "target": "other-node"}]
     for r in node.relationships:
         assert set(r) >= {"type", "target"}
 
@@ -58,7 +58,7 @@ def test_label_defaults_to_id(tmp_path):
         """\
         ---
         id: minimal-node
-        node_type: Concept
+        node_type: Company
         ---
         Body.
         """
@@ -90,7 +90,7 @@ def test_unknown_relationship_type_raises(tmp_path):
         """\
         ---
         id: badrel-node
-        node_type: Concept
+        node_type: Company
         relationships:
           - type: FROBNICATES
             target: somewhere
@@ -132,13 +132,13 @@ def test_scan_vault_collects_errors(temp_vault):
 # --- module constants ---------------------------------------------------
 
 def test_valid_node_types():
-    assert parser.VALID_NODE_TYPES == {"Concept", "Technology", "Algorithm", "Pattern", "Course"}
+    assert parser.VALID_NODE_TYPES == {"Company", "Person", "Industry", "Product", "License", "CreditBureau"}
 
 
 def test_valid_rel_types_members():
     expected = {
-        "IMPLEMENTS", "USES_QUERY_LANGUAGE", "EXTENDS", "IS_VARIANT_OF",
-        "ENABLES", "OPTIMIZED_FOR", "USED_IN", "RELATED_TO", "STORES_AS",
-        "COMPETES_WITH", "INSPIRED_BY", "PREREQUISITE_OF", "COVERS",
+        "SELLS_TO", "SUPPLIES", "OPERATES_IN", "TRADES_PRODUCT",
+        "HOLDS_LICENSE", "RATED_BY", "PRINCIPAL_OF", "GAVE_REFERENCE_FOR",
+        "SUBSIDIARY_OF", "PARTNERS_WITH", "COMPETES_WITH", "INVITED",
     }
     assert parser.VALID_REL_TYPES == expected

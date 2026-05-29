@@ -25,7 +25,7 @@ def _make_node():
     return parser.ParsedNode(
         id="test-node",
         label="Test Node",
-        node_type="Concept",
+        node_type="Company",
         tags=["test"],
         summary="A test node.",
         properties={"created": 2024, "skip_dict": {"nested": True}},
@@ -69,7 +69,7 @@ def test_write_node_builds_label_query(client):
 
     query = tx.run.call_args[0][0]
     kwargs = tx.run.call_args[1]
-    assert "MERGE (n:Concept {id: $id})" in query
+    assert "MERGE (n:Company {id: $id})" in query
     assert kwargs["id"] == "test-node"
     # dict-valued properties are filtered out; scalars/lists kept.
     assert kwargs["props"]["created"] == 2024
@@ -89,7 +89,7 @@ def test_write_relationship_builds_query(client):
     c, session = client
     # execute_write returns the result of the lambda; emulate .single() -> [1]
     session.execute_write.return_value = [1]
-    out = c.write_relationship("src-id", "RELATED_TO", "tgt-id")
+    out = c.write_relationship("src-id", "SELLS_TO", "tgt-id")
     assert out is True
 
     work = session.execute_write.call_args[0][0]
@@ -98,6 +98,6 @@ def test_write_relationship_builds_query(client):
     work(tx)
     query = tx.run.call_args[0][0]
     kwargs = tx.run.call_args[1]
-    assert ":RELATED_TO" in query
+    assert ":SELLS_TO" in query
     assert kwargs["src"] == "src-id"
     assert kwargs["tgt"] == "tgt-id"

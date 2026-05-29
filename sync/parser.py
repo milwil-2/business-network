@@ -6,11 +6,11 @@ import frontmatter
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]")
 
-VALID_NODE_TYPES = {"Concept", "Technology", "Algorithm", "Pattern", "Course"}
+VALID_NODE_TYPES = {"Company", "Person", "Industry", "Product", "License", "CreditBureau"}
 VALID_REL_TYPES = {
-    "IMPLEMENTS", "USES_QUERY_LANGUAGE", "EXTENDS", "IS_VARIANT_OF",
-    "ENABLES", "OPTIMIZED_FOR", "USED_IN", "RELATED_TO", "STORES_AS",
-    "COMPETES_WITH", "INSPIRED_BY", "PREREQUISITE_OF", "COVERS",
+    "SELLS_TO", "SUPPLIES", "OPERATES_IN", "TRADES_PRODUCT",
+    "HOLDS_LICENSE", "RATED_BY", "PRINCIPAL_OF", "GAVE_REFERENCE_FOR",
+    "SUBSIDIARY_OF", "PARTNERS_WITH", "COMPETES_WITH", "INVITED",
 }
 
 
@@ -36,7 +36,7 @@ def parse_node_file(path: Path) -> ParsedNode:
     post = frontmatter.load(str(path))
     fm = post.metadata
 
-    node_type = fm.get("node_type", "Concept")
+    node_type = fm.get("node_type", "Company")
     if node_type not in VALID_NODE_TYPES:
         raise ValueError(f"Invalid node_type '{node_type}' in {path.name}")
 

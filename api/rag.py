@@ -4,7 +4,7 @@ Retrieval is hybrid: we first try semantic (vector) search to pull the most
 relevant seed nodes and their neighbors as focused context. If the vector
 index is unavailable (e.g. on Vercel where chromadb isn't installed, or the
 index is empty) we fall back to passing every node summary into the prompt —
-the graph is small (~22 nodes) so that still fits. Either way the LLM cites
+the graph is small (~100 nodes) so that still fits. Either way the LLM cites
 the node ids it used, and we enrich those ids with their neighbors so the UI
 can show the subgraph that grounded the answer.
 """
@@ -21,8 +21,11 @@ from . import db
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 SYSTEM_INSTRUCTION = (
-    "You answer questions about software engineering using ONLY the provided "
-    "knowledge-graph nodes. Respond with a JSON object of the form "
+    "You answer questions about a B2B trade & trust network (companies, their "
+    "principals, trade relationships, products/industries, licenses, and "
+    "creditworthiness) using ONLY the provided knowledge-graph nodes. When "
+    "relevant, surface trust signals (trust_score, credit_rating, fico, status) "
+    "and trade connections. Respond with a JSON object of the form "
     '{"answer": "<your answer>", "cited_node_ids": ["<id>", ...]} — list the '
     "node ids you used in cited_node_ids. If the graph lacks the info, say so "
     "in the answer."

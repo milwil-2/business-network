@@ -1,11 +1,11 @@
 """Extract knowledge graph nodes from raw notes or topic names using Groq (Llama 3.3).
 
 Usage:
-    uv run sync/extract.py --topic "Bloom Filter"
+    uv run sync/extract.py --topic "Cascade Beverage Co"
     uv run sync/extract.py --inbox
     uv run sync/extract.py --file vault/inbox/my-note.md
     uv run sync/extract.py --inbox --auto-sync
-    uv run sync/extract.py --topic "Redis Sorted Set" --dry-run
+    uv run sync/extract.py --topic "Ironclad Building Supply" --dry-run
 """
 
 import os
@@ -29,29 +29,29 @@ load_dotenv(Path(__file__).parent.parent / ".env")
 app = typer.Typer(help="Extract knowledge graph nodes using Groq.")
 console = Console()
 
-VALID_NODE_TYPES = {"Concept", "Technology", "Algorithm", "Pattern", "Course"}
+VALID_NODE_TYPES = {"Company", "Person", "Industry", "Product", "License", "CreditBureau"}
 VALID_REL_TYPES = {
-    "IMPLEMENTS",
-    "USES_QUERY_LANGUAGE",
-    "EXTENDS",
-    "IS_VARIANT_OF",
-    "ENABLES",
-    "OPTIMIZED_FOR",
-    "USED_IN",
-    "RELATED_TO",
-    "STORES_AS",
+    "SELLS_TO",
+    "SUPPLIES",
+    "OPERATES_IN",
+    "TRADES_PRODUCT",
+    "HOLDS_LICENSE",
+    "RATED_BY",
+    "PRINCIPAL_OF",
+    "GAVE_REFERENCE_FOR",
+    "SUBSIDIARY_OF",
+    "PARTNERS_WITH",
     "COMPETES_WITH",
-    "INSPIRED_BY",
-    "PREREQUISITE_OF",
-    "COVERS",
+    "INVITED",
 }
 
 NODE_TYPE_SUBDIR = {
-    "Concept": "concepts",
-    "Technology": "technologies",
-    "Algorithm": "algorithms",
-    "Pattern": "patterns",
-    "Course": "courses",
+    "Company": "companies",
+    "Person": "people",
+    "Industry": "industries",
+    "Product": "products",
+    "License": "licenses",
+    "CreditBureau": "bureaus",
 }
 
 
@@ -68,7 +68,7 @@ class Relationship(BaseModel):
 class ExtractedNode(BaseModel):
     id: str
     label: str
-    node_type: Literal["Concept", "Technology", "Algorithm", "Pattern", "Course"]
+    node_type: Literal["Company", "Person", "Industry", "Product", "License", "CreditBureau"]
     tags: list[str]
     summary: str
     properties: dict[str, str | int | float] = {}
@@ -102,17 +102,18 @@ def load_existing_nodes(vault_path: Path) -> list[str]:
 def build_system_prompt(existing_ids: list[str]) -> str:
     """Build the system prompt for the extraction task."""
     ids_block = "\n".join(f"  - {nid}" for nid in existing_ids) if existing_ids else "  (none yet)"
-    return f"""You are a knowledge graph curator. Extract structured nodes from text and return a JSON object.
+    return f"""You are a B2B trade-network curator. Extract structured nodes from text and return a JSON object. The graph models a Nuvo-style network of verified businesses, who runs them, what they trade, and their creditworthiness/trust.
 
 ## Node types (use one of these exact values)
-- Concept — abstract ideas, theories, principles (e.g. "eventual consistency", "graph theory")
-- Technology — concrete tools, databases, libraries, languages (e.g. "Redis", "Neo4j", "Python")
-- Algorithm — named algorithms and data structures (e.g. "Bloom Filter", "Dijkstra")
-- Pattern — design and architectural patterns (e.g. "CQRS", "Event Sourcing")
-- Course — university courses / classes, e.g. 'CS 61B', 'Data 100'
+- Company — a business / trade entity (e.g. "Cascade Beverage Co", "Ironclad Building Supply")
+- Person — a principal, owner, or officer of a company (e.g. "Dana Whitfield, CEO")
+- Industry — a trade sector (e.g. "Alcohol & Beverage", "Building Materials", "Chemicals", "Food Service")
+- Product — a traded commodity or good (e.g. "Craft Lager", "Portland Cement", "Industrial Solvent")
+- License — a regulatory/business license (e.g. "Federal Liquor Permit", "Hazmat Handling License")
+- CreditBureau — a credit-rating / business-verification agency (e.g. "Dun & Bradstreet", "Experian Business")
 
 ## Valid relationship types (use ONLY these exact strings)
-IMPLEMENTS, USES_QUERY_LANGUAGE, EXTENDS, IS_VARIANT_OF, ENABLES, OPTIMIZED_FOR, USED_IN, RELATED_TO, STORES_AS, COMPETES_WITH, INSPIRED_BY, PREREQUISITE_OF, COVERS
+SELLS_TO, SUPPLIES, OPERATES_IN, TRADES_PRODUCT, HOLDS_LICENSE, RATED_BY, PRINCIPAL_OF, GAVE_REFERENCE_FOR, SUBSIDIARY_OF, PARTNERS_WITH, COMPETES_WITH, INVITED
 
 ## Existing node IDs (ONLY use these as relationship targets — never invent new ones)
 {ids_block}
@@ -121,13 +122,14 @@ IMPLEMENTS, USES_QUERY_LANGUAGE, EXTENDS, IS_VARIANT_OF, ENABLES, OPTIMIZED_FOR,
 1. id: kebab-case slug, lowercase, hyphens only
 2. summary: exactly one sentence
 3. tags: must include the node_type string as one of the tags
-4. body: 3–5 paragraphs of Obsidian markdown, use [[wikilinks]] for cross-references
-5. Extract ALL relevant nodes mentioned — a single note may yield multiple nodes
-6. relationships[].target must be an ID from the existing list above — if nothing fits, leave relationships empty
+4. properties: put trust signals on Company nodes when present — trust_score (0-100), credit_rating (AAA..D), fico (300-850), annual_revenue_usd, founded_year, hq_location, status (verified|pending|flagged)
+5. body: 3–5 paragraphs of Obsidian markdown, use [[wikilinks]] for cross-references
+6. Extract ALL relevant nodes mentioned — a single note may yield multiple nodes
+7. relationships[].target must be an ID from the existing list above — if nothing fits, leave relationships empty
 
 ## Output format
 Return ONLY a JSON object with this exact structure (no markdown fences):
-{{"nodes": [{{"id": "...", "label": "...", "node_type": "Concept|Technology|Algorithm|Pattern|Course", "tags": ["..."], "summary": "...", "properties": {{}}, "relationships": [{{"type": "...", "target": "..."}}], "body": "..."}}]}}
+{{"nodes": [{{"id": "...", "label": "...", "node_type": "Company|Person|Industry|Product|License|CreditBureau", "tags": ["..."], "summary": "...", "properties": {{}}, "relationships": [{{"type": "...", "target": "..."}}], "body": "..."}}]}}
 """
 
 
