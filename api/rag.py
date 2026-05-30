@@ -68,18 +68,28 @@ def _retrieve_context(question: str, mode: str = "auto") -> tuple[str, str]:
     except RuntimeError:
         return _graph_only_context()
 
+    # 2-hop neighbourhood per seed so the LLM can answer traversal questions
+    # like "which vendors supply the buyers a company sells to" — a pattern
+    # that's invisible if we only fetch the seed's direct neighbours.
     lines: list[str] = []
+    seen_seeds: set[str] = set()
+    seen_edges: set[tuple] = set()
     for seed in seeds:
         node = db.get_node(seed["id"])
-        if node is None:
+        if node is None or node["id"] in seen_seeds:
             continue
+        seen_seeds.add(node["id"])
         lines.append(
             f"- {node['id']} ({node['type']}): "
             f"{node['label']} — {node['summary']}"
         )
-        for edge in db.get_neighbors(node["id"]):
+        for edge in db.get_neighborhood(node["id"], hops=2):
+            key = (edge["src_id"], edge["rel"], edge["dst_id"])
+            if key in seen_edges:
+                continue
+            seen_edges.add(key)
             lines.append(
-                f"  -[{edge['rel']}]-> {edge['target_label']}"
+                f"  ({edge['src_id']}) -[:{edge['rel']}]-> ({edge['dst_id']})"
             )
     return "\n".join(lines), "hybrid"
 

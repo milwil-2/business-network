@@ -35,14 +35,20 @@ def test_retrieve_context_hybrid(monkeypatch):
     )
     monkeypatch.setattr(
         rag.db,
-        "get_neighbors",
-        lambda node_id: [
+        "get_neighborhood",
+        lambda node_id, hops=2: [
+            # 1-hop: Acme sells to Globex
             {
+                "src_id": "acme-foods", "src_label": "Acme Foods", "src_type": "Company",
                 "rel": "SELLS_TO",
-                "target_id": "globex-trading",
-                "target_label": "Globex Trading",
-                "target_type": "Company",
-            }
+                "dst_id": "globex-trading", "dst_label": "Globex Trading", "dst_type": "Company",
+            },
+            # 2-hop: Initech also supplies Globex — the vendor-recommendation pattern.
+            {
+                "src_id": "initech", "src_label": "Initech", "src_type": "Company",
+                "rel": "SUPPLIES",
+                "dst_id": "globex-trading", "dst_label": "Globex Trading", "dst_type": "Company",
+            },
         ],
     )
 
@@ -50,7 +56,10 @@ def test_retrieve_context_hybrid(monkeypatch):
 
     assert mode == "hybrid"
     assert "Acme Foods" in context
-    assert "Globex Trading" in context
+    # 2-hop expansion surfaces the indirect vendor through Globex.
+    assert "globex-trading" in context
+    assert "initech" in context
+    assert "SELLS_TO" in context and "SUPPLIES" in context
 
 
 def test_retrieve_context_fallback(monkeypatch):

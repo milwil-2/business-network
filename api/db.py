@@ -82,6 +82,38 @@ def get_neighbors(node_id: str) -> list[dict]:
         return [dict(r) for r in records]
 
 
+def get_neighborhood(node_id: str, hops: int = 2) -> list[dict]:
+    """Return every edge within ``hops`` of ``node_id``, in either direction.
+
+    Used by GraphRAG hybrid retrieval so the LLM can see multi-hop graph
+    patterns (e.g. ``Seller -[:SELLS_TO]-> Buyer <-[:SUPPLIES]- Vendor``)
+    rather than just the seed's direct neighbours. Each row is a directed
+    edge ``{src_id, src_label, src_type, rel, dst_id, dst_label, dst_type}``;
+    the variable-length match is undirected so we don't miss inbound edges
+    like the one a buyer receives from its vendors.
+    """
+    # ``hops`` is interpolated into Cypher (var-length patterns can't be
+    # parameterised). Restrict to a tiny safe set to keep this injection-safe.
+    assert hops in (1, 2, 3), f"unsupported hops: {hops}"
+    with get_driver().session() as s:
+        records = s.run(
+            f"""
+            MATCH path = (seed {{id:$id}})-[*1..{hops}]-(other)
+            WHERE other.id <> $id
+            UNWIND relationships(path) AS r
+            WITH DISTINCT r, startNode(r) AS a, endNode(r) AS b
+            RETURN a.id AS src_id, a.label AS src_label,
+                   [l IN labels(a) WHERE l IN $primary][0] AS src_type,
+                   type(r) AS rel,
+                   b.id AS dst_id, b.label AS dst_label,
+                   [l IN labels(b) WHERE l IN $primary][0] AS dst_type
+            """,
+            id=node_id,
+            primary=PRIMARY_TYPES,
+        )
+        return [dict(r) for r in records]
+
+
 def get_graph() -> dict:
     """Return the entire graph shaped for vis-network rendering."""
     with get_driver().session() as s:
