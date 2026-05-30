@@ -70,11 +70,17 @@ def _retrieve_context(question: str, mode: str = "auto") -> tuple[str, str]:
 
     # 2-hop neighbourhood per seed so the LLM can answer traversal questions
     # like "which vendors supply the buyers a company sells to" — a pattern
-    # that's invisible if we only fetch the seed's direct neighbours.
+    # that's invisible if we only fetch the seed's direct neighbours. Highly
+    # connected seeds (e.g. a freight hub) can pull 200+ edges in 2 hops, so
+    # cap per-seed and overall to stay inside Groq's TPM budget.
+    EDGES_PER_SEED = 30
+    TOTAL_EDGES_CAP = 150
     lines: list[str] = []
     seen_seeds: set[str] = set()
     seen_edges: set[tuple] = set()
     for seed in seeds:
+        if len(seen_edges) >= TOTAL_EDGES_CAP:
+            break
         node = db.get_node(seed["id"])
         if node is None or node["id"] in seen_seeds:
             continue
@@ -83,11 +89,17 @@ def _retrieve_context(question: str, mode: str = "auto") -> tuple[str, str]:
             f"- {node['id']} ({node['type']}): "
             f"{node['label']} — {node['summary']}"
         )
+        seed_edges_added = 0
         for edge in db.get_neighborhood(node["id"], hops=2):
+            if seed_edges_added >= EDGES_PER_SEED:
+                break
+            if len(seen_edges) >= TOTAL_EDGES_CAP:
+                break
             key = (edge["src_id"], edge["rel"], edge["dst_id"])
             if key in seen_edges:
                 continue
             seen_edges.add(key)
+            seed_edges_added += 1
             lines.append(
                 f"  ({edge['src_id']}) -[:{edge['rel']}]-> ({edge['dst_id']})"
             )
