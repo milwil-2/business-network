@@ -6,6 +6,7 @@ a module-level ``app``. Routes are root-relative (no ``/api`` prefix).
 
 import secrets
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,6 +55,7 @@ _TEMPLATE = Path(__file__).parent / "templates" / "index.html"
 
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
+    mode: Literal["auto", "hybrid", "graph-only"] = "auto"
 
 
 class IngestRequest(BaseModel):
@@ -111,7 +113,7 @@ def semantic_search(
 
 @app.post("/ask")
 def ask(req: AskRequest):
-    return rag.answer_question(req.question)
+    return rag.answer_question(req.question, mode=req.mode)
 
 
 def _guard_ingest(x_api_key: str | None) -> None:

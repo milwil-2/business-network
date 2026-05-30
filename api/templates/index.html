@@ -72,7 +72,30 @@
       font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em;
       color: var(--muted); margin: 0 0 10px;
     }
+    .trust-details > summary {
+      list-style: none; cursor: pointer; user-select: none;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .trust-details > summary::-webkit-details-marker { display: none; }
+    .trust-details > summary::before {
+      content: "\25B8"; color: var(--muted); font-size: 10px;
+      transition: transform 120ms ease;
+    }
+    .trust-details[open] > summary::before { transform: rotate(90deg); }
+    .trust-details > summary h2 { display: inline; margin: 0; }
+    .trust-details[open] > summary h2 { margin: 0 0 10px; }
     .ask-row { display: flex; gap: 8px; }
+    .mode-row {
+      display: flex; gap: 12px; align-items: center;
+      font-size: 11px; color: var(--muted); margin-top: 8px;
+    }
+    .mode-row label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
+    .mode-row input[type="radio"] { margin: 0; }
+    .mode-tag {
+      display: inline-block; font-size: 10px; color: var(--muted);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 1px 6px; margin-left: 6px; vertical-align: middle;
+    }
     #question {
       flex: 1;
       background: var(--bg);
@@ -210,8 +233,8 @@
         <h2>Selected company</h2>
         <div id="nodeDetail" class="nodecard empty">Click a company node to see its trust-score breakdown.</div>
       </div>
-      <div class="section">
-        <h2>How trust is scored</h2>
+      <details class="section trust-details">
+        <summary><h2>How trust is scored</h2></summary>
         <div class="method">
           <div class="row"><div class="top"><b>Creditworthiness</b><span>30</span></div><div class="bar"><span style="width:100%"></span></div></div>
           <div class="row"><div class="top"><b>Trade references</b><span>20</span></div><div class="bar"><span style="width:66%"></span></div></div>
@@ -224,12 +247,18 @@
           A weighted score from 0 to 100. <b>Principal integrity</b> drops to 0 when a
           company shares an owner with a <b>flagged</b> business, which is the main fraud signal.
         </div>
-      </div>
+      </details>
       <div class="section">
         <h2>GraphRAG</h2>
         <div class="ask-row">
           <input id="question" type="text" placeholder="Ask about the network&hellip;" />
           <button id="askBtn">Ask</button>
+        </div>
+        <div class="mode-row" role="radiogroup" aria-label="Retrieval mode">
+          <span>Retrieval:</span>
+          <label><input type="radio" name="ask-mode" value="auto" checked> Auto</label>
+          <label><input type="radio" name="ask-mode" value="hybrid"> Hybrid</label>
+          <label><input type="radio" name="ask-mode" value="graph-only"> Graph-only</label>
         </div>
         <div class="chips">
           <span class="chip" data-q="Which companies look risky or fraudulent, and why?">Who looks risky?</span>
@@ -436,14 +465,22 @@ ORDER BY v.trust_score DESC LIMIT 10;</pre>
       answerEl.innerHTML = '<span class="spinner"></span>Thinking&hellip;';
       citedEl.innerHTML = '';
       subEl.innerHTML = '';
+      const modeChoice = (document.querySelector('input[name="ask-mode"]:checked') || {}).value || 'auto';
       try {
         const res = await fetch('/ask', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: q }),
+          body: JSON.stringify({ question: q, mode: modeChoice }),
         });
         const data = await res.json();
-        answerEl.textContent = data.answer || '(no answer)';
+        answerEl.replaceChildren();
+        answerEl.appendChild(document.createTextNode(data.answer || '(no answer)'));
+        if (data.mode) {
+          const tag = document.createElement('span');
+          tag.className = 'mode-tag';
+          tag.textContent = 'mode: ' + data.mode;
+          answerEl.appendChild(tag);
+        }
         const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const cited = data.cited_node_ids || [];
         if (cited.length) {

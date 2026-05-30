@@ -39,23 +39,34 @@ class RagAnswer(BaseModel):
     cited_node_ids: list[str]
 
 
-def _retrieve_context(question: str) -> tuple[str, str]:
+def _graph_only_context() -> tuple[str, str]:
+    summaries = db.all_node_summaries()
+    context = "\n".join(
+        f"- {n['id']} ({n['type']}): {n['label']} — {n['summary']}"
+        for n in summaries
+    )
+    return context, "graph-only"
+
+
+def _retrieve_context(question: str, mode: str = "auto") -> tuple[str, str]:
     """Build grounding context for the question.
 
-    Returns ``(context_text, mode)`` where ``mode`` is ``"hybrid"`` (vector
-    seeds + their neighbors) or ``"graph-only"`` (every node summary). When
-    the embedding service is unavailable ``semantic_search`` raises
-    ``RuntimeError`` and we degrade to graph-only.
+    ``mode`` controls retrieval:
+      - ``"auto"`` (default): try hybrid (vector seeds + neighbors); on a
+        RuntimeError from the embedding service, fall back to graph-only.
+      - ``"hybrid"``: same as auto but the user explicitly asked for hybrid.
+        Still falls back silently on RuntimeError; the returned mode reflects
+        what was actually used.
+      - ``"graph-only"``: skip vector retrieval entirely and pass every node
+        summary as context.
     """
+    if mode == "graph-only":
+        return _graph_only_context()
+
     try:
         seeds = semantic_search(question, k=6)
     except RuntimeError:
-        summaries = db.all_node_summaries()
-        context = "\n".join(
-            f"- {n['id']} ({n['type']}): {n['label']} — {n['summary']}"
-            for n in summaries
-        )
-        return context, "graph-only"
+        return _graph_only_context()
 
     lines: list[str] = []
     for seed in seeds:
@@ -73,9 +84,9 @@ def _retrieve_context(question: str) -> tuple[str, str]:
     return "\n".join(lines), "hybrid"
 
 
-def answer_question(question: str) -> dict:
+def answer_question(question: str, mode: str = "auto") -> dict:
     """Answer a question grounded in the graph; never raises."""
-    context, mode = _retrieve_context(question)
+    context, mode = _retrieve_context(question, mode=mode)
     user_content = (
         f"Question: {question}\n\n"
         f"Knowledge-graph nodes:\n{context}"

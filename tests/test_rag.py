@@ -77,3 +77,32 @@ def test_retrieve_context_fallback(monkeypatch):
 
     assert mode == "graph-only"
     assert "Globex Trading" in context
+
+
+def test_retrieve_context_forced_graph_only_skips_vector(monkeypatch):
+    """mode='graph-only' must skip semantic_search entirely (no embed call)."""
+    called = {"n": 0}
+
+    def _should_not_run(*a, **kw):
+        called["n"] += 1
+        raise AssertionError("semantic_search must not be called in graph-only mode")
+
+    monkeypatch.setattr(rag, "semantic_search", _should_not_run)
+    monkeypatch.setattr(
+        rag.db,
+        "all_node_summaries",
+        lambda: [
+            {
+                "id": "globex-trading",
+                "label": "Globex Trading",
+                "type": "Company",
+                "summary": "A wholesale trading company.",
+            }
+        ],
+    )
+
+    context, mode = rag._retrieve_context("anything", mode="graph-only")
+
+    assert mode == "graph-only"
+    assert "Globex Trading" in context
+    assert called["n"] == 0
