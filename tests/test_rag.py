@@ -88,6 +88,37 @@ def test_retrieve_context_fallback(monkeypatch):
     assert "Globex Trading" in context
 
 
+def test_system_instruction_has_traversal_guardrails():
+    """The prompt must keep its traversal-grounding clauses (issue #12).
+
+    These exact phrases stop the LLM from naming topically-related companies
+    as 'vendors' for questions like 'which vendors supply the buyers Cobalt
+    Freight already sells to' — the LLM must walk the explicit
+    `(a) -[:REL]-> (b)` chains shown in context or say no such pattern
+    exists. If a future refactor drops these, the live /ask answers regress.
+    """
+    instr = rag.SYSTEM_INSTRUCTION
+
+    # JSON shape contract is still required (validators depend on it).
+    assert '"answer"' in instr and '"cited_node_ids"' in instr
+
+    # Trust-signal guidance is preserved.
+    for signal in ("trust_score", "credit_rating", "fico", "status"):
+        assert signal in instr
+
+    # Edge format the model should expect (matches `_retrieve_context`).
+    assert "(<src_id>) -[:<REL>]-> (<dst_id>)" in instr
+
+    # Direction-of-edge guidance distinguishes SELLS_TO vs SUPPLIES.
+    assert "SELLS_TO" in instr and "SUPPLIES" in instr
+
+    # Traversal-grounding clauses from the issue.
+    assert "(a) -[:REL]-> (b)" in instr
+    assert "Do not invent" in instr
+    # Honest-refusal clause when the asked pattern is absent.
+    assert "not present in the shown edges" in instr
+
+
 def test_retrieve_context_forced_graph_only_skips_vector(monkeypatch):
     """mode='graph-only' must skip semantic_search entirely (no embed call)."""
     called = {"n": 0}
