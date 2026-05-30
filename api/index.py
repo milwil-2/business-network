@@ -55,7 +55,7 @@ _TEMPLATE = Path(__file__).parent / "templates" / "index.html"
 
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
-    mode: Literal["auto", "hybrid", "graph-only"] = "auto"
+    mode: Literal["auto", "hybrid", "graph-only", "cypher"] = "auto"
 
 
 class IngestRequest(BaseModel):
