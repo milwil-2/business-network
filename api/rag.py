@@ -73,7 +73,17 @@ def _retrieve_context(question: str, mode: str = "auto") -> tuple[str, str]:
     # that's invisible if we only fetch the seed's direct neighbours. Highly
     # connected seeds (e.g. a freight hub) can pull 200+ edges in 2 hops, so
     # cap per-seed and overall to stay inside Groq's TPM budget.
-    EDGES_PER_SEED = 30
+    #
+    # Issue #11: ``db.get_neighborhood`` now returns edges pre-sorted by tier
+    # (1 = 1-hop incident to seed, 2 = 2-hop edge closing the chain back to
+    # the seed, 3 = other 2-hop), with trade rels prioritised inside tier 2.
+    # We iterate in that order so the cap survives the *critical* edges —
+    # specifically the tier-2 "closing chain" edges that ARE the answers to
+    # vendor/buyer recommendation questions. Per-seed cap bumped from 30 to
+    # 60 so a high-degree seed (e.g. ``cobalt-freight``: 29 tier-1 + 46
+    # tier-2 = 75 priority edges) keeps all of tier 1 and most of tier 2;
+    # total cap unchanged at 150 (still within Groq's per-request TPM).
+    EDGES_PER_SEED = 60
     TOTAL_EDGES_CAP = 150
     lines: list[str] = []
     seen_seeds: set[str] = set()
